@@ -1,3 +1,3 @@
 # hooper
 
-A new Flutter project.
+A basketball app used to find matchups nearby, still a work in progress. 
