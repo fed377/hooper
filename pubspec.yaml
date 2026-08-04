@@ -8,9 +8,12 @@ environment:
 
 dependencies:
   cloud_firestore: ^6.7.1
+  cloud_functions: ^6.3.5
+  firebase_auth: ^6.5.6
   firebase_core: ^4.12.1
   flutter:
     sdk: flutter
+  google_fonts: ^6.3.2
   progressive_blur: ^0.0.2
   screen_corner_radius: ^2.0.0
 

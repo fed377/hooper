@@ -3,7 +3,7 @@ import 'package:hooper/models/matchup.dart';
 
 abstract class MatchupRepository {
   Stream<List<Matchup>> nearbyMatchups({required GeoPoint center, required double radiusKm});
-  Future<void> proposeMatch(String targetId, String courtId, DateTime time);
+  Future<String> proposeMatch({required String courtId, required String targetId, required DateTime scheduledTime});
 }
 
 class ProposeMatchException implements Exception {

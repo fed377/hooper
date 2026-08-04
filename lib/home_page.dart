@@ -63,7 +63,7 @@ class _HomePageState extends State<HomePage> {
                             boxShadow: [BoxShadow(blurRadius: 10, spreadRadius: 2, color: Colors.black.withAlpha(50))],
                             color:
                                 Theme.of(context).navigationBarTheme.backgroundColor ??
-                                Theme.of(context).colorScheme.surfaceTint,
+                                Theme.of(context).colorScheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(rad - 8),
                           ),
                           margin: EdgeInsets.all(8),
