@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hooper/discover_page.dart';
+import 'package:hooper/chat_screen.dart';
+import 'package:hooper/screens/leaderboard_screen.dart';
+import 'package:hooper/screens/feed_screen.dart';
+import 'package:hooper/screens/profile_screen.dart';
 import 'package:hooper/utils.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,7 +35,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
-  final icons = [Icons.search_rounded, Icons.chat_rounded, Icons.bar_chart_rounded, Icons.person_2_rounded];
+  final icons = [Icons.sports_basketball_rounded, Icons.chat_rounded, Icons.bar_chart_rounded, Icons.person_2_rounded];
 
   Widget buildBottomBar(double rad) {
     return Padding(
@@ -60,16 +63,16 @@ class _HomePageState extends State<HomePage> {
                         duration: const Duration(milliseconds: 200),
                         child: Container(
                           decoration: BoxDecoration(
-                            boxShadow: [BoxShadow(blurRadius: 10, spreadRadius: 2, color: Colors.black.withAlpha(50))],
-                            color:
-                                Theme.of(context).navigationBarTheme.backgroundColor ??
-                                Theme.of(context).colorScheme.secondaryContainer,
+                            //boxShadow: [BoxShadow(blurRadius: 10, spreadRadius: 2, color: Colors.black.withAlpha(50))],
+                            color: const Color.fromARGB(134, 212, 212, 212),
+                            // Theme.of(context).navigationBarTheme.backgroundColor ??
+                            //Theme.of(context).colorScheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(rad - 8),
                           ),
                           margin: EdgeInsets.all(8),
                         ),
                       ),
-                      Icon(icons[index], size: 26, color: Colors.black),
+                      Icon(icons[index], size: 26, color: isCurr ? Colors.black : Colors.grey),
                     ],
                   ),
                 ),
@@ -96,12 +99,7 @@ class _HomePageState extends State<HomePage> {
           });
         },
         physics: const ClampingScrollPhysics(),
-        children: const [
-          Discover(),
-          Center(child: Text('Search Screen', style: TextStyle(fontSize: 24))),
-          Center(child: Text('Profile Screen', style: TextStyle(fontSize: 24))),
-          Center(child: Text('Profile Screen', style: TextStyle(fontSize: 24))),
-        ],
+        children: const [MatchupFeedScreen(), ChatScreen(), LeaderboardScreen(), ProfileScreen()],
       ),
     );
   }

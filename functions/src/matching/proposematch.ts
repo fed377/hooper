@@ -1,10 +1,10 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {getFirestore, FieldValue} from "firebase-admin/firestore";
+import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 
 interface ProposeMatchRequest {
   targetId: string;
   courtId: string;
-  scheduledTime: string;
+  scheduledTime: string; // ISO 8601
 }
 
 export const proposeMatch = onCall(async (request) => {
@@ -24,8 +24,13 @@ export const proposeMatch = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Cannot challenge yourself.");
   }
 
+  const scheduledTimestamp = Timestamp.fromDate(new Date(scheduledTime));
+  if (isNaN(scheduledTimestamp.toDate().getTime())) {
+    throw new HttpsError("invalid-argument", "scheduledTime is not a valid date.");
+  }
+
   const db = getFirestore();
-  const sourceRef = db.collection("playerProfiles").doc(uid);
+  const requesterRef = db.collection("playerProfiles").doc(uid);
   const targetRef = db.collection("playerProfiles").doc(targetId);
   const matchRequestRef = db.collection("matchRequests").doc();
 
@@ -33,16 +38,16 @@ export const proposeMatch = onCall(async (request) => {
   // stale "unlocked" state if someone else challenged this target a
   // moment ago. Re-check isLocked inside the transaction, not just
   // in the read that populated the feed.
-  await db.runTransaction(async (taction) => {
-    const [sourceSnap, targetSnap] = await Promise.all([
-      taction.get(sourceRef),
-      taction.get(targetRef),
+  await db.runTransaction(async (tx) => {
+    const [requesterSnap, targetSnap] = await Promise.all([
+      tx.get(requesterRef),
+      tx.get(targetRef),
     ]);
 
     if (!targetSnap.exists) {
       throw new HttpsError("not-found", "That player no longer exists.");
     }
-    if (sourceSnap.data()?.isLocked) {
+    if (requesterSnap.data()?.isLocked) {
       throw new HttpsError(
         "failed-precondition",
         "You're already in an active match."
@@ -55,12 +60,12 @@ export const proposeMatch = onCall(async (request) => {
       );
     }
 
-    taction.set(matchRequestRef, {
+    tx.set(matchRequestRef, {
       mode: "1v1",
       initiatorId: uid,
       targetId,
       courtId,
-      scheduledTime,
+      scheduledTime: scheduledTimestamp,
       status: "pending",
       createdAt: FieldValue.serverTimestamp(),
     });

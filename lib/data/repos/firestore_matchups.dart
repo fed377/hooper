@@ -5,13 +5,6 @@ import 'package:hooper/data/repos/matchup_repo.dart';
 import 'package:hooper/models/matchup.dart';
 
 class FirestoreMatchupRepository implements MatchupRepository {
-  final _col = FirebaseFirestore.instance
-      .collection('playerProfiles')
-      .withConverter<Matchup>(
-        fromFirestore: (snap, _) => Matchup.fromJson({...snap.data()!, 'id': snap.id}),
-        toFirestore: (matchup, _) => matchup.toJson(),
-      );
-
   FirestoreMatchupRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _functions = functions ?? FirebaseFunctions.instance;
@@ -19,7 +12,7 @@ class FirestoreMatchupRepository implements MatchupRepository {
   CollectionReference<Matchup> get _playerProfiles => _firestore
       .collection('playerProfiles')
       .withConverter<Matchup>(
-        fromFirestore: (snap, _) => Matchup.fromJson({...snap.data()!, 'id': snap.id}),
+        fromFirestore: (snap, _) => Matchup.fromJson({...snap.data()!, 'id': snap.id, 'distanceKm': 100}),
         toFirestore: (matchup, _) => matchup.toJson(),
       );
 
@@ -27,13 +20,14 @@ class FirestoreMatchupRepository implements MatchupRepository {
   final FirebaseFunctions _functions;
 
   @override
-  Stream<List<Matchup>> nearbyMatchups({required GeoPoint center, required double radiusKm}) {
+  Stream<List<Matchup>> nearbyMatchups({required GeoPoint center, required double radiusKm, required String userId}) {
     // A real radius search needs a geohash range query (geoflutterfire2 is
     // the usual pick) built around `center`/`radiusKm`. This starter
     // version just excludes locked profiles so the shape of the pipeline
     // is in place — swap the query below once geo-bucketing is wired up.
     return _playerProfiles
         .where('isLocked', isEqualTo: false)
+        //.where(FieldPath.documentId, isNotEqualTo: userId)
         .snapshots()
         .map((snap) => snap.docs.map((d) => d.data()).toList());
   }

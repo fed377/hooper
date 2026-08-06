@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum Tier { rookie, rising, baller, pro, elite }
 
 Tier tierForElo(int elo) {
@@ -25,22 +27,28 @@ String tierLabel(Tier tier) {
 
 class Matchup {
   final String id;
-  final String name;
+  final String displayName;
   final String? photoUrl;
   final int elo;
   final double distanceKm;
   final List<bool> recentForm;
   final bool isLocked;
   final DateTime lastActive;
+  final int gamesPlayed1v1;
+  final int visibilityRadius;
+  final String? lockedMatchId;
 
   Matchup({
     required this.id,
-    required this.name,
+    required this.displayName,
     required this.elo,
     required this.distanceKm,
     required this.recentForm,
-    this.photoUrl,
-    this.isLocked = false,
+    required this.gamesPlayed1v1,
+    required this.photoUrl,
+    required this.isLocked,
+    required this.visibilityRadius,
+    required this.lockedMatchId,
     DateTime? lastActive,
   }) : lastActive = lastActive ?? DateTime.now();
 
@@ -49,26 +57,29 @@ class Matchup {
   factory Matchup.fromJson(Map<String, dynamic> data) {
     return Matchup(
       id: data['id'] as String,
-      name: data['name'] as String,
+      displayName: data['displayName'] as String,
       photoUrl: data['photoUrl'] as String?,
       elo: data['elo'] as int,
       distanceKm: (data['distanceKm'] as num).toDouble(),
-      recentForm: (data['recentForm'] as List).cast<bool>(),
+      visibilityRadius: data['visibilityRadius'] as int,
       isLocked: data['isLocked'] as bool? ?? false,
-      lastActive: data['lastActive'] != null
-          ? DateTime.parse(data['lastActive'] as String)
-          : null,
+      lockedMatchId: data['lockedMatchId'] as String?,
+      recentForm: (data['recentForm'] as List).cast<bool>(),
+      lastActive: DateTime.parse((data['lastActive'] as Timestamp).toDate().toIso8601String()),
+      gamesPlayed1v1: data['gamesPlayed1v1'] as int,
     );
   }
 
   Map<String, dynamic> toJson() {
+    //TODO: fix tojson
     return {
-      'name': name,
+      'displayName': displayName,
       'photoUrl': photoUrl,
       'elo': elo,
       'recentForm': recentForm,
       'isLocked': isLocked,
       'lastActive': lastActive.toIso8601String(),
+      'gamesPlayed1v1': gamesPlayed1v1,
     };
   }
 }

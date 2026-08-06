@@ -4,28 +4,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hooper/data/auth/authgate.dart';
 import 'package:hooper/firebase_options.dart';
-import 'package:hooper/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  if (kDebugMode) {
+  if (kDebugMode && false) {
+    
     FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
     FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
     await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
   }
-  runApp(const MainApp());
+  runApp(ProviderScope(child: const HooperApp()));
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class HooperApp extends StatelessWidget {
+  const HooperApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: HomePage(),
+      home: const AuthGate(),
       theme: ThemeData.light().copyWith(textTheme: GoogleFonts.latoTextTheme()),
     );
   }
