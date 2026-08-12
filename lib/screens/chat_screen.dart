@@ -1,0 +1,401 @@
+import 'dart:developer' show log;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/models/chat.dart';
+
+import '../data/providers.dart';
+import '../data/repos/match_repo.dart';
+import '../models/match.dart';
+
+class ChatScreen extends ConsumerStatefulWidget {
+  final String chatId;
+  final void Function()? onPropose;
+  const ChatScreen({super.key, required this.chatId, required this.onPropose});
+
+  @override
+  ConsumerState<ChatScreen> createState() => _MatchNegotiationScreenState();
+}
+
+class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
+  final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  bool _editingDetails = false;
+  final _courtController = TextEditingController();
+  DateTime? _editedTime;
+  bool _busy = false;
+
+  Future<void> _send() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+    _messageController.clear();
+    final uid = ref.read(currentUserIdProvider);
+    await ref.read(matchRepositoryProvider).sendMessage(chatId: widget.chatId, uid: uid, text: text);
+  }
+
+  void _startEditingDetails(MatchRequestDoc request) {
+    _courtController.text = request.court;
+    _editedTime = request.scheduledTime;
+    setState(() => _editingDetails = true);
+  }
+
+  Future<void> _pickEditedTime() async {
+    final base = _editedTime ?? DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 14)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(base));
+    if (time == null) return;
+    setState(() {
+      _editedTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
+  Future<void> _saveDetails(String requestId) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(matchRepositoryProvider)
+          .updateMatchRequestDetails(
+            matchRequestId: requestId,
+            courtText: _courtController.text.trim(),
+            scheduledTime: _editedTime,
+          );
+      if (!mounted) return;
+      setState(() => _editingDetails = false);
+    } on MatchActionException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _runAction(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } on MatchActionException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chatAsync = ref.watch(chatProvider(widget.chatId));
+    final uid = ref.watch(currentUserIdProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: chatAsync.maybeWhen(
+          data: (chat) {
+            final otherId = chat.otherParticipant(uid);
+            final nameAsync = ref.watch(playerDisplayNameProvider(otherId));
+            return Text(nameAsync.value ?? 'Loading…');
+          },
+          orElse: () => const Text('Chat'),
+        ),
+      ),
+      body: chatAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, st) {
+          log(st.toString());
+          return Center(child: Text('Could not load this chat: $err'));
+        },
+        data: (chat) => _buildBody(chat, uid, chat.otherParticipant(uid)),
+      ),
+    );
+  }
+
+  Widget _buildBody(Chat chat, String uid, String otherId) {
+    final requestId = chat.lastMatchRequestId;
+
+    return Column(
+      children: [
+        if (requestId != null) _buildDetailsSection(requestId),
+        Expanded(child: _buildChat(uid)),
+        if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId),
+      ],
+    );
+  }
+
+  Widget _buildDetailsSection(String requestId) {
+    final requestAsync = ref.watch(matchRequestProvider(requestId));
+    return requestAsync.when(
+      loading: () => const LinearProgressIndicator(minHeight: 2),
+      error: (err, _) => const SizedBox.shrink(),
+      data: (request) => Column(
+        children: [
+          _DetailsWidget(
+            request: request,
+            editing: _editingDetails,
+            busy: _busy,
+            courtController: _courtController,
+            editedTime: _editedTime,
+            onEdit: () => _startEditingDetails(request),
+            onPickTime: _pickEditedTime,
+            onSave: () => _saveDetails(requestId),
+            onCancelEdit: () => setState(() => _editingDetails = false),
+          ),
+          _StatusBanner(status: request.status),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChat(String uid) {
+    final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
+    return Column(
+      children: [
+        Expanded(
+          child: messagesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Could not load chat: $err')),
+            data: (messages) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_scrollController.hasClients) {
+                  _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                }
+              });
+              if (messages.isEmpty) {
+                return const Center(child: Text('No messages yet — say hi!'));
+              }
+              return ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(12),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final msg = messages[index];
+                  if (msg.isSystem) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Center(
+                        child: Text(
+                          msg.text,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+                  final isMine = msg.senderId == uid;
+                  return Align(
+                    alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                      decoration: BoxDecoration(
+                        color: isMine
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(msg.text),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: const InputDecoration(hintText: 'Message…', border: OutlineInputBorder(), isDense: true),
+                  onSubmitted: (_) => _send(),
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.send), onPressed: _send),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionBarForRequest(String requestId, String uid, String otherId) {
+    final requestAsync = ref.watch(matchRequestProvider(requestId));
+    final repo = ref.read(matchRepositoryProvider);
+
+    return requestAsync.maybeWhen(
+      data: (request) {
+        if (request.status == MatchRequestStatus.accepted) {
+          // TODO: navigate into the locked/match screen once it exists.
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text("You're locked in! Head to the court.", textAlign: TextAlign.center),
+          );
+        }
+
+        if (request.status != MatchRequestStatus.pending) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FilledButton(onPressed: _busy ? null : widget.onPropose, child: Text("Play")),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final isInitiator = request.isInitiator(uid);
+
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              if (isInitiator)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => _runAction(() => repo.cancelRequest(requestId)),
+                    child: const Text('Cancel request'),
+                  ),
+                )
+              else ...[
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => _runAction(() => repo.declineRequest(requestId)),
+                    child: const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  final MatchRequestStatus status;
+  const _StatusBanner({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    String? message;
+    switch (status) {
+      case MatchRequestStatus.declined:
+        message = 'This request was declined.';
+        break;
+      case MatchRequestStatus.withdrawn:
+        message = 'This request was cancelled.';
+        break;
+      case MatchRequestStatus.expired:
+        message = 'This request expired.';
+        break;
+      case MatchRequestStatus.pending:
+      case MatchRequestStatus.accepted:
+        message = null;
+    }
+    if (message == null) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      color: Theme.of(context).colorScheme.errorContainer,
+      padding: const EdgeInsets.all(10),
+      child: Text(message, textAlign: TextAlign.center),
+    );
+  }
+}
+
+class _DetailsWidget extends StatelessWidget {
+  final MatchRequestDoc request;
+  final bool editing;
+  final bool busy;
+  final TextEditingController courtController;
+  final DateTime? editedTime;
+  final VoidCallback onEdit;
+  final VoidCallback onPickTime;
+  final VoidCallback onSave;
+  final VoidCallback onCancelEdit;
+
+  const _DetailsWidget({
+    required this.request,
+    required this.editing,
+    required this.busy,
+    required this.courtController,
+    required this.editedTime,
+    required this.onEdit,
+    required this.onPickTime,
+    required this.onSave,
+    required this.onCancelEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canEdit = request.status == MatchRequestStatus.pending;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+      ),
+      child: editing
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: courtController,
+                  decoration: const InputDecoration(labelText: 'Court', isDense: true),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(onPressed: busy ? null : onCancelEdit, child: const Text('Cancel')),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(onPressed: busy ? null : onSave, child: const Text('Save')),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(request.court, style: Theme.of(context).textTheme.titleSmall),
+                      Text(request.scheduledTime.toString(), style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                if (canEdit) IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined)),
+              ],
+            ),
+    );
+  }
+}

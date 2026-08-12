@@ -1,9 +1,10 @@
-import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { ensureChatExists, pairChatId, postSystemMessage } from "./chatutils";
 
 interface ProposeMatchRequest {
   targetId: string;
-  courtId: string;
+  court: string;
   scheduledTime: string; // ISO 8601
 }
 
@@ -13,35 +14,43 @@ export const proposeMatch = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  const {targetId, courtId, scheduledTime} = request.data as ProposeMatchRequest;
-  if (!targetId || !courtId || !scheduledTime) {
+  const { targetId, court, scheduledTime } =
+    request.data as ProposeMatchRequest;
+
+  if (!targetId || !court.trim() || !scheduledTime) {
     throw new HttpsError(
       "invalid-argument",
-      "targetId, courtId, and scheduledTime are required."
+      "targetId, court, and scheduledTime are required.",
     );
   }
-  if (targetId === uid) {
+
+  const targetIdTrim = targetId.trim();
+
+  if (targetIdTrim === uid) {
     throw new HttpsError("invalid-argument", "Cannot challenge yourself.");
   }
 
   const scheduledTimestamp = Timestamp.fromDate(new Date(scheduledTime));
   if (isNaN(scheduledTimestamp.toDate().getTime())) {
-    throw new HttpsError("invalid-argument", "scheduledTime is not a valid date.");
+    throw new HttpsError(
+      "invalid-argument",
+      "scheduledTime is not a valid date.",
+    );
   }
 
   const db = getFirestore();
   const requesterRef = db.collection("playerProfiles").doc(uid);
-  const targetRef = db.collection("playerProfiles").doc(targetId);
+  const targetRef = db.collection("playerProfiles").doc(targetIdTrim);
   const matchRequestRef = db.collection("matchRequests").doc();
+  const chatId = pairChatId(uid, targetId);
+  const chatRef = db.collection("chats").doc(chatId);
+  const proposalText = `Proposed ${court.trim()} at ${scheduledTimestamp.toDate().toLocaleString()}`;
 
-  // A transaction matters here: the client's feed may be showing a
-  // stale "unlocked" state if someone else challenged this target a
-  // moment ago. Re-check isLocked inside the transaction, not just
-  // in the read that populated the feed.
   await db.runTransaction(async (tx) => {
-    const [requesterSnap, targetSnap] = await Promise.all([
+    const [requesterSnap, targetSnap, chatSnap] = await Promise.all([
       tx.get(requesterRef),
       tx.get(targetRef),
+      tx.get(chatRef),
     ]);
 
     if (!targetSnap.exists) {
@@ -50,29 +59,49 @@ export const proposeMatch = onCall(async (request) => {
     if (requesterSnap.data()?.isLocked) {
       throw new HttpsError(
         "failed-precondition",
-        "You're already in an active match."
+        "You're already in an active match.",
       );
     }
     if (targetSnap.data()?.isLocked) {
       throw new HttpsError(
         "failed-precondition",
-        "That player just got locked into another match."
+        "That player just got locked into another match.",
       );
     }
+
+    const priorRequestId = chatSnap.data()?.lastMatchRequestId as
+      | string
+      | undefined;
+
+    if (priorRequestId) {
+      const priorSnap = await tx.get(
+        db.collection("matchRequests").doc(priorRequestId),
+      );
+      if (priorSnap.data()?.status === "pending") {
+        throw new HttpsError(
+          "failed-precondition",
+          "There's already an open request in your conversation with this player.",
+        );
+      }
+    }
+
+    await ensureChatExists(tx, chatRef, uid, targetId, chatSnap);
 
     tx.set(matchRequestRef, {
       mode: "1v1",
       initiatorId: uid,
-      targetId,
-      courtId,
+      targetId: targetIdTrim,
+      court: court.trim(),
       scheduledTime: scheduledTimestamp,
       status: "pending",
+      chatId: chatId,
       createdAt: FieldValue.serverTimestamp(),
     });
+
+    tx.update(chatRef, {lastMatchRequestId: matchRequestRef.id});
+
+    postSystemMessage(tx, chatRef, proposalText, {matchRequestId: matchRequestRef.id});
   });
 
-  // Note: this only creates the *request* — locking both profiles
-  // happens in acceptRequest.ts once the target accepts, per the
-  // matchmaking flow from the spec. Don't lock on propose.
-  return {matchRequestId: matchRequestRef.id};
+  return {matchRequestId: matchRequestRef.id, chatId: chatRef.id};
 });

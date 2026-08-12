@@ -29,6 +29,7 @@ class Matchup {
   final String id;
   final String displayName;
   final String? photoUrl;
+  final String? bannerUrl;
   final int elo;
   final double distanceKm;
   final List<bool> recentForm;
@@ -37,6 +38,9 @@ class Matchup {
   final int gamesPlayed1v1;
   final int visibilityRadius;
   final String? lockedMatchId;
+  final String? bio;
+  final int height;
+  final int position;
 
   Matchup({
     required this.id,
@@ -46,9 +50,13 @@ class Matchup {
     required this.recentForm,
     required this.gamesPlayed1v1,
     required this.photoUrl,
+    required this.bannerUrl,
     required this.isLocked,
     required this.visibilityRadius,
     required this.lockedMatchId,
+    required this.bio,
+    required this.height,
+    required this.position,
     DateTime? lastActive,
   }) : lastActive = lastActive ?? DateTime.now();
 
@@ -59,6 +67,7 @@ class Matchup {
       id: data['id'] as String,
       displayName: data['displayName'] as String,
       photoUrl: data['photoUrl'] as String?,
+      bannerUrl: data['bannerUrl'] as String?,
       elo: data['elo'] as int,
       distanceKm: (data['distanceKm'] as num).toDouble(),
       visibilityRadius: data['visibilityRadius'] as int,
@@ -67,19 +76,12 @@ class Matchup {
       recentForm: (data['recentForm'] as List).cast<bool>(),
       lastActive: DateTime.parse((data['lastActive'] as Timestamp).toDate().toIso8601String()),
       gamesPlayed1v1: data['gamesPlayed1v1'] as int,
+      bio: data['bio'] as String?,
+      height: data['height'] as int,
+      position: data['position'] as int,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    //TODO: fix tojson
-    return {
-      'displayName': displayName,
-      'photoUrl': photoUrl,
-      'elo': elo,
-      'recentForm': recentForm,
-      'isLocked': isLocked,
-      'lastActive': lastActive.toIso8601String(),
-      'gamesPlayed1v1': gamesPlayed1v1,
-    };
-  }
+  //not used for anything
+  Map<String, dynamic> toJson() => {};
 }

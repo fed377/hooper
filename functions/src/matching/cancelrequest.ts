@@ -2,7 +2,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { postSystemMessage } from "./chatutils";
 
-export const declineRequest = onCall(async (request) => {
+export const cancelRequest = onCall(async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Sign in required.");
@@ -10,7 +10,7 @@ export const declineRequest = onCall(async (request) => {
 
   const { matchRequestId } = request.data as { matchRequestId: string };
   if (!matchRequestId) {
-    throw new HttpsError("invalid-argument", "matchRequestId is required");
+    throw new HttpsError("invalid-argument", "matchRequestId is required.");
   }
 
   const db = getFirestore();
@@ -29,22 +29,23 @@ export const declineRequest = onCall(async (request) => {
         `This request is already ${req.status}.`,
       );
     }
-    if (uid !== req.targetId) {
+    // Distinct from declineRequest: only the person who SENT the
+    // challenge can withdraw it this way. The target says no via
+    // declineRequest instead — kept as separate statuses
+    // ("withdrawn" vs "declined") so the history reads correctly.
+    if (uid !== req.initiatorId) {
       throw new HttpsError(
         "permission-denied",
-        "Only the challenged player can decline this.",
+        "Only the player who sent this challenge can cancel it.",
       );
     }
 
-    tx.update(requestRef, { status: "declined" });
+    tx.update(requestRef, { status: "withdrawn" });
 
     const chatRef = db.collection("chats").doc(req.chatId);
-    postSystemMessage(
-      tx,
-      chatRef,
-      "The challenged player declined this request.",
-      { matchRequestId },
-    );
+    postSystemMessage(tx, chatRef, "The challenger cancelled this request.", {
+      matchRequestId,
+    });
   });
 
   return { ok: true };

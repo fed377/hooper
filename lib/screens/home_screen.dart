@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:hooper/chat_screen.dart';
-import 'package:hooper/screens/leaderboard_screen.dart';
 import 'package:hooper/screens/feed_screen.dart';
+import 'package:hooper/screens/inbox_screen.dart';
+import 'package:hooper/screens/leaderboard_screen.dart';
 import 'package:hooper/screens/profile_screen.dart';
 import 'package:hooper/utils.dart';
 
@@ -35,9 +35,14 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
-  final icons = [Icons.sports_basketball_rounded, Icons.chat_rounded, Icons.bar_chart_rounded, Icons.person_2_rounded];
-
   Widget buildBottomBar(double rad) {
+    final icons = [
+      Icons.sports_basketball_rounded,
+      Icons.chat_rounded,
+      Icons.bar_chart_rounded,
+      Icons.person_2_rounded,
+    ];
+
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: ClipRRect(
@@ -48,36 +53,40 @@ class _HomePageState extends State<HomePage> {
                 Theme.of(context).navigationBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surfaceContainer,
           ),
           height: 64,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: List.generate(4, (index) {
-              final isCurr = _currPage == index;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onDestination(index),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AnimatedOpacity(
-                        opacity: isCurr ? 1 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            //boxShadow: [BoxShadow(blurRadius: 10, spreadRadius: 2, color: Colors.black.withAlpha(50))],
-                            color: const Color.fromARGB(134, 212, 212, 212),
-                            // Theme.of(context).navigationBarTheme.backgroundColor ??
-                            //Theme.of(context).colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(rad - 8),
-                          ),
-                          margin: EdgeInsets.all(8),
-                        ),
-                      ),
-                      Icon(icons[index], size: 26, color: isCurr ? Colors.black : Colors.grey),
-                    ],
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AnimatedAlign(
+                alignment: FractionalOffset((_currPage) / 3, 0),
+                duration: Durations.medium1,
+                child: FractionallySizedBox(
+                  widthFactor: 0.25,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(134, 212, 212, 212),
+                      borderRadius: BorderRadius.circular(rad - 8),
+                    ),
+                    margin: EdgeInsets.all(8),
                   ),
                 ),
-              );
-            }),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: List.generate(4, (index) {
+                  final isCurr = _currPage == index;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onDestination(index),
+                      child: SizedBox(
+                        width: (MediaQuery.of(context).size.width - 24) / 4,
+                        child: Icon(icons[index], size: 26, color: isCurr ? Colors.black : Colors.grey),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
           ),
         ),
       ),
@@ -99,7 +108,7 @@ class _HomePageState extends State<HomePage> {
           });
         },
         physics: const ClampingScrollPhysics(),
-        children: const [MatchupFeedScreen(), ChatScreen(), LeaderboardScreen(), ProfileScreen()],
+        children: const [MatchupFeedScreen(), ChatInboxScreen(), LeaderboardScreen(), ProfileScreen()],
       ),
     );
   }

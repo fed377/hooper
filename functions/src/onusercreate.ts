@@ -14,35 +14,24 @@ export const onUserCreate = functionsV1
     batch.set(db.collection("users").doc(user.uid), {
       authProviderId: user.uid,
       phoneOrEmail: user.email ?? null,
-      displayName: user.displayName ?? "New Player",
       createdAt: FieldValue.serverTimestamp(),
       status: "active",
     });
 
     batch.set(db.collection("playerProfiles").doc(user.uid), {
+      displayName: "New Player",
       photoUrl: user.photoURL,
       elo: 1200,
-      gamesPlayed1v1: 0,
-      isLocked: false,
-      lockedMatchId: null,
-      visibilityRadiusKm: 10,
-      lastActive: FieldValue.serverTimestamp(),
-      displayName: user.displayName ?? "New Player",
-      recentForm: [0, 0, 0, 0, 0],
-    });
-
-
-    batch.set(db.collection("playerProfiles").doc(user.uid),{
-      displayName: user.displayName ?? "New Player",
-      photoUrl: user.photoURL,
-      elo: 1200, 
       visibilityRadius: 10,
       isLocked: false,
-      lockedMatchId: null,
+      lockedMatchId: [],
       lastActive: FieldValue.serverTimestamp(),
       recentForm: [],
       gamesPlayed1v1: 0,
-    })
+      bio: "",
+      height: 0,
+      position: 1,
+    });
 
     await batch.commit();
   });

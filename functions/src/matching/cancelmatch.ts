@@ -25,10 +25,7 @@ export const cancelMatch = onCall(async (request) => {
     if (uid !== match.sideAId && uid !== match.sideBId) {
       throw new HttpsError("permission-denied", "You're not part of this match.");
     }
-    // Free cancellation is only for matches that haven't had a score
-    // reported yet — once someone's submitted a score, cancelling
-    // becomes a dispute question, not a cancel button. See
-    // reconcileScore.ts for the disputed-score path.
+    
     if (match.status !== "scheduled") {
       throw new HttpsError(
         "failed-precondition",

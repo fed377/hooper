@@ -4,9 +4,19 @@ import 'package:hooper/utils.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
 class MatchupCard extends StatefulWidget {
-  const MatchupCard({super.key, required this.matchup, required this.onChallenge});
+  const MatchupCard({
+    super.key,
+    required this.matchup,
+    required this.onChallenge,
+    required this.onAccept,
+    required this.onChat,
+    this.hasChallengedYou = false,
+  });
   final Matchup matchup;
+  final bool hasChallengedYou;
   final void Function() onChallenge;
+  final void Function()? onAccept;
+  final void Function() onChat;
 
   @override
   State<MatchupCard> createState() => _MatchupCardState();
@@ -17,6 +27,7 @@ class _MatchupCardState extends State<MatchupCard> {
   Widget build(BuildContext context) {
     const double spacing = 14;
     Matchup match = widget.matchup;
+    match.tier;
 
     return Padding(
       padding: const EdgeInsets.only(top: 46, left: 12, right: 12, bottom: 12),
@@ -39,12 +50,9 @@ class _MatchupCardState extends State<MatchupCard> {
                     start: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                   ),
-                  child: widget.matchup.photoUrl == null
-                      ? Image.network(
-                          "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=index&utm_content=thumbnail_unscaled",
-                          fit: BoxFit.cover,
-                        )
-                      : Image.network(widget.matchup.photoUrl!, fit: BoxFit.cover),
+                  child: widget.matchup.bannerUrl == null
+                      ? Icon(Icons.question_mark_rounded)
+                      : Image.network(widget.matchup.bannerUrl!, fit: BoxFit.cover),
                 ),
               ),
               Padding(
@@ -126,14 +134,17 @@ class _MatchupCardState extends State<MatchupCard> {
                                   padding: EdgeInsets.all(14),
                                 ),
                                 icon: Icon(Icons.chat_bubble_rounded, size: 20),
-                                onPressed: () {},
+                                onPressed: widget.onChat,
                               ),
                               const SizedBox(width: spacing),
                               Expanded(
                                 child: FilledButton(
                                   style: ElevatedButton.styleFrom(minimumSize: Size(0, 50)),
-                                  onPressed: widget.onChallenge,
-                                  child: Text("Play", style: TextStyle(fontSize: 16)),
+                                  onPressed: widget.hasChallengedYou ? widget.onAccept : widget.onChallenge,
+                                  child: Text(
+                                    widget.hasChallengedYou ? "Accept" : "Play",
+                                    style: TextStyle(fontSize: 16),
+                                  ),
                                 ),
                               ),
                             ],

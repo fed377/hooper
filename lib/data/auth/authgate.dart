@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hooper/home_page.dart';
+import 'package:hooper/data/heartbeat.dart';
+import 'package:hooper/screens/home_screen.dart';
+import 'package:hooper/screens/profile_fill_screen.dart';
 
 import '../../../data/providers.dart';
-import '../../screens/signin_screen.dart';
+import '../../screens/authentication_screen.dart';
 
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
@@ -17,12 +19,9 @@ class AuthGate extends ConsumerWidget {
       error: (err, _) => Scaffold(body: Center(child: Text('Something went wrong signing in: $err'))),
       data: (user) {
         if (user == null) {
-          return const EmailSignInScreen();
+          return const AuthenticationScreen();
         }
 
-        // Signed in — but wait for onUserCreate to have finished
-        // writing playerProfiles/{uid} before handing off to the rest
-        // of the app, which assumes that doc exists.
         final profileExists = ref.watch(profileExistsProvider(user.uid));
         return profileExists.when(
           loading: () => const _Splash(message: 'Setting up your profile…'),
@@ -31,14 +30,31 @@ class AuthGate extends ConsumerWidget {
             if (!exists) {
               return const _Splash(message: 'Setting up your profile…');
             }
-            // TODO: once dateOfBirth collection is built, check for it
-            // here too and route to an onboarding screen if missing —
-            // onUserCreate deliberately doesn't set it (see Step 1).
-            return const HomePage();
+            final dob = ref.watch(myDateOfBirthProvider(user.uid));
+            return dob.when(
+              loading: () => const _Splash(),
+              error: (err, _) => Scaffold(body: Center(child: Text('Could not load your account: $err'))),
+              data: (birthDate) {
+                if (birthDate == null) {
+                  return const ProfileFillScreen();
+                }
+                return ActivityHeartbeat(uid: user.uid, child: LockGate());
+              },
+            );
           },
         );
       },
     );
+  }
+}
+
+class LockGate extends ConsumerWidget {
+  const LockGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final myLockedMatchesProvider = ref.watch(myLockedMatchIdsProvider);
+    return Center(child: const HomePage());
   }
 }
 

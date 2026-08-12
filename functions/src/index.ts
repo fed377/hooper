@@ -11,7 +11,9 @@ export { declineRequest } from "./matching/declinerequest";
 export { proposeMatch } from "./matching/proposematch";
 export { reconcileScore } from "./scoring/reconcilescore";
 export { submitScore } from "./scoring/submitscore";
-
-//export {expireStaleRequests} from "./maintenance/expireStaleRequests";
+export { cancelRequest } from "./matching/cancelrequest";
+export { updateMatchRequest } from "./matching/updatematchrequest"; 
 export { onUserCreate } from "./onusercreate";
+//export {expireStaleRequests} from "./maintenance/expireStaleRequests";
+
 
