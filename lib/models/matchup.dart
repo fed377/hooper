@@ -33,11 +33,9 @@ class Matchup {
   final int elo;
   final double distanceKm;
   final List<bool> recentForm;
-  final bool isLocked;
   final DateTime lastActive;
   final int gamesPlayed1v1;
   final int visibilityRadius;
-  final String? lockedMatchId;
   final String? bio;
   final int height;
   final int position;
@@ -51,9 +49,7 @@ class Matchup {
     required this.gamesPlayed1v1,
     required this.photoUrl,
     required this.bannerUrl,
-    required this.isLocked,
     required this.visibilityRadius,
-    required this.lockedMatchId,
     required this.bio,
     required this.height,
     required this.position,
@@ -71,8 +67,6 @@ class Matchup {
       elo: data['elo'] as int,
       distanceKm: (data['distanceKm'] as num).toDouble(),
       visibilityRadius: data['visibilityRadius'] as int,
-      isLocked: data['isLocked'] as bool? ?? false,
-      lockedMatchId: data['lockedMatchId'] as String?,
       recentForm: (data['recentForm'] as List).cast<bool>(),
       lastActive: DateTime.parse((data['lastActive'] as Timestamp).toDate().toIso8601String()),
       gamesPlayed1v1: data['gamesPlayed1v1'] as int,

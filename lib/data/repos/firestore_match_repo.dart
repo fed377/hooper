@@ -19,11 +19,7 @@ class FirestoreMatchRepository implements MatchRepository {
   Stream<MatchDoc> watchMatch(String matchId) {
     return _firestore.collection('matches').doc(matchId).snapshots().map((snap) {
       final data = snap.data()!;
-      return MatchDoc.fromJson({
-        ...data,
-        'id': snap.id,
-        'scheduledTime': (data['scheduledTime'] as Timestamp).toDate(),
-      });
+      return MatchDoc.fromJson({...data, 'id': snap.id});
     });
   }
 
@@ -64,13 +60,6 @@ class FirestoreMatchRepository implements MatchRepository {
   Stream<Chat> watchChat(String chatId) {
     return _firestore.collection('chats').doc(chatId).snapshots().map((snap) {
       if (!snap.exists) {
-        // Reachable now that MatchupCard's chat button opens a chat
-        // with no proposal ever having been sent — there's no doc
-        // here yet. Synthesize a display-only placeholder rather than
-        // throwing: participantIds comes from splitting chatId itself
-        // (uidA_uidB, sorted — see pairChatId), which works because
-        // Firebase Auth uids never contain underscores. Never written
-        // anywhere; sendMessage creates the real doc on first message.
         return Chat(id: chatId, participantIds: chatId.split('_'), lastMatchRequestId: null, createdAt: DateTime.now());
       }
       return _chatFromSnap(snap);
@@ -120,6 +109,40 @@ class FirestoreMatchRepository implements MatchRepository {
             });
           }).toList(),
         );
+  }
+
+  @override
+  Stream<List<MatchDoc>> watchLockedMatches(String userId) {
+    return _firestore.collection('playerProfiles').doc(userId).snapshots().asyncExpand((userSnap) {
+      if (!userSnap.exists) {
+        return Stream.value([]);
+      }
+
+      final data = userSnap.data();
+      final List<String> lockedMatchIds = (data?["lockedMatchIds"] as List?)?.cast<String>() ?? const [];
+
+      if (lockedMatchIds.isEmpty) {
+        return Stream.value([]);
+      }
+
+      final constrainedIds = lockedMatchIds.take(30).toList();
+
+      return _firestore
+          .collection('matches')
+          .where(FieldPath.documentId, whereIn: constrainedIds)
+          .snapshots()
+          .map(
+            (matchSnap) => matchSnap.docs.map((d) {
+              final matchData = d.data();
+              return MatchDoc.fromJson({
+                ...matchData,
+                'id': d.id,
+                'createdAt': (matchData['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                'startTime': (matchData['startTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              });
+            }).toList(),
+          );
+    });
   }
 
   @override
@@ -178,15 +201,6 @@ class FirestoreMatchRepository implements MatchRepository {
   }
 
   @override
-  Stream<List<String>?> watchMyLockedMatchIds(String uid) {
-    return _firestore
-        .collection('playerProfiles')
-        .doc(uid)
-        .snapshots()
-        .map((snap) => (snap.data()?['lockedMatchId'] as List?)?.cast<String>());
-  }
-
-  @override
   Future<String> acceptRequest(String matchRequestId) async {
     try {
       final result = await _functions.httpsCallable('acceptRequest').call({'matchRequestId': matchRequestId});
@@ -212,6 +226,15 @@ class FirestoreMatchRepository implements MatchRepository {
       await _functions.httpsCallable('cancelMatch').call({'matchId': matchId});
     } on FirebaseFunctionsException catch (e) {
       throw MatchActionException(e.code, e.message ?? 'Could not cancel.');
+    }
+  }
+
+  @override
+  Future<void> startMatch(String matchId) async {
+    try {
+      await _functions.httpsCallable('startMatch').call({'matchId': matchId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not start.');
     }
   }
 

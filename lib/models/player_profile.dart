@@ -22,6 +22,10 @@ int playerPositionToInt(PlayerPosition? position) {
   return 0;
 }
 
+final _positions = ["Guard", "Forward", "Center"];
+
+String playerPositionToString(PlayerPosition? position) => _positions[playerPositionToInt(position)];
+
 class PlayerProfile {
   final String userId;
   final String displayName;
@@ -32,8 +36,8 @@ class PlayerProfile {
   final int elo;
   final int gamesPlayed1v1;
   final List<bool> recentForm;
-  final bool locked;
-  final String? lockedMatchId;
+  final List<String> lockedMatchIds;
+  final List<String>? completedMatches;
   int visibilityRadius;
   final GeoPoint? homeLocation;
   final DateTime? lastActiveAt;
@@ -50,8 +54,8 @@ class PlayerProfile {
     required this.elo,
     required this.gamesPlayed1v1,
     this.recentForm = const [],
-    required this.locked,
-    this.lockedMatchId,
+    required this.lockedMatchIds,
+    required this.completedMatches,
     required this.visibilityRadius,
     this.homeLocation,
     this.lastActiveAt,
@@ -68,8 +72,8 @@ class PlayerProfile {
       elo: json['elo'] as int,
       gamesPlayed1v1: json['gamesPlayed1v1'] as int,
       recentForm: (json['recentForm'] as List).cast<bool>(),
-      locked: json['isLocked'] as bool? ?? false,
-      lockedMatchId: json['lockedMatchId'] as String?,
+      lockedMatchIds: (json['lockedMatchIds'] as List?)?.cast<String>() ?? const [],
+      completedMatches: (json['completedMatches'] as List?)?.cast<String>() ?? const [],
       visibilityRadius: json['visibilityRadius'] as int,
       homeLocation: json['homeLocation'] as GeoPoint?,
       lastActiveAt: (json['lastActive'] as Timestamp?)?.toDate(),

@@ -14,6 +14,7 @@ export { submitScore } from "./scoring/submitscore";
 export { cancelRequest } from "./matching/cancelrequest";
 export { updateMatchRequest } from "./matching/updatematchrequest"; 
 export { onUserCreate } from "./onusercreate";
+export { startMatch } from "./matching/startmatch";
 //export {expireStaleRequests} from "./maintenance/expireStaleRequests";
 
 

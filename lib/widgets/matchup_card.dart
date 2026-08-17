@@ -31,13 +31,10 @@ class _MatchupCardState extends State<MatchupCard> {
 
     return Padding(
       padding: const EdgeInsets.only(top: 46, left: 12, right: 12, bottom: 12),
-      child: ClipRRect(
+      child: ClipRSuperellipse(
         borderRadius: BorderRadius.circular((Utils.cornerRadius ?? 20) + 10),
         child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular((Utils.cornerRadius ?? 20) + 10),
-          ),
+          decoration: BoxDecoration(color: Colors.black),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -60,9 +57,11 @@ class _MatchupCardState extends State<MatchupCard> {
                 child: Align(
                   alignment: Alignment.bottomCenter,
                   child: Container(
-                    decoration: BoxDecoration(
+                    decoration: ShapeDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular((Utils.cornerRadius ?? 20) - 2),
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular((Utils.cornerRadius ?? 20) - 2),
+                      ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: spacing),
@@ -139,7 +138,10 @@ class _MatchupCardState extends State<MatchupCard> {
                               const SizedBox(width: spacing),
                               Expanded(
                                 child: FilledButton(
-                                  style: ElevatedButton.styleFrom(minimumSize: Size(0, 50)),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: Size(0, 50),
+                                    shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+                                  ),
                                   onPressed: widget.hasChallengedYou ? widget.onAccept : widget.onChallenge,
                                   child: Text(
                                     widget.hasChallengedYou ? "Accept" : "Play",

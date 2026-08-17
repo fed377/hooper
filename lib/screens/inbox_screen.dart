@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
-import 'package:hooper/screens/propose_screen.dart';
 
 import '../data/providers.dart';
 import '../models/match.dart';
@@ -16,7 +15,7 @@ class ChatInboxScreen extends ConsumerWidget {
     final chatsAsync = ref.watch(myChatsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chats')),
+      appBar: AppBar(leading: const Text('Chats')),
       body: chatsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Could not load your chats: $err')),
@@ -41,7 +40,15 @@ class ChatInboxScreen extends ConsumerWidget {
 
           return ListView.separated(
             itemCount: chats.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, __) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+              child: Divider(
+                height: 1,
+                thickness: 2,
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                radius: BorderRadius.circular(10),
+              ),
+            ),
             itemBuilder: (context, index) {
               final request = chats[index];
               return _ConversationTile(uid: uid, chat: request);
@@ -77,6 +84,8 @@ class _ConversationTile extends ConsumerWidget {
         return const Chip(label: Text('Cancelled'), visualDensity: VisualDensity.compact);
       case MatchRequestStatus.expired:
         return const Chip(label: Text('Expired'), visualDensity: VisualDensity.compact);
+      case MatchRequestStatus.finished:
+        return const Chip(label: Text('Finished'), visualDensity: VisualDensity.compact);
       case MatchRequestStatus.pending:
         return null;
     }
@@ -93,7 +102,10 @@ class _ConversationTile extends ConsumerWidget {
     final statusChip = requestId == null
         ? null
         : lastRequest?.maybeWhen(data: (request) => _statusChip(request.status), orElse: () => null);
+
     final imageUrl = ref.watch(playerPhotoUrlProvider(otherId));
+
+    //TODO: Make it so that this widget can somehow tell when a match is finished, and show it
 
     return ListTile(
       leading: imageUrl.when(
@@ -107,32 +119,20 @@ class _ConversationTile extends ConsumerWidget {
         error: (_, _) => null,
         loading: () => null,
       ),
-      title: Text(nameAsync.value ?? 'Loading…'),
+      title: Text(
+        nameAsync.value ?? 'Loading…',
+        style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+      ),
       subtitle: Text(chat.lastMessagePreview ?? "No messages", maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(_relativeTime(lastActivity), style: Theme.of(context).textTheme.bodySmall),
-          if (statusChip != null) statusChip,
+          //if (statusChip != null) statusChip,
         ],
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ChatScreen(
-            chatId: chat.id,
-            onPropose: () {
-              final matchupAsync = ref.watch(matchupFromIdProvider(otherId));
-              return matchupAsync.when(
-                error: (error, stackTrace) {},
-                loading: () {},
-                data: (d) =>
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProposeMatchScreen(target: d))),
-              );
-            },
-          ),
-        ),
-      ),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: chat.id))),
     );
   }
 }

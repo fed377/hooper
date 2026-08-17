@@ -83,13 +83,13 @@ final playerBannerUrlProvider = FutureProvider.family<String, String>((ref, uid)
   return doc.data()?['bannerUrl'] as String? ?? '';
 });
 
+final playerDiscoverRadiusProvider = FutureProvider.family<int, String>((ref, uid) async {
+  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
+  return doc.data()?['visibilityRadius'] as int? ?? 10;
+});
+
 // --- Discovery feed -------------------------------------------------------
 
-/// Center point for the "nearby" query. Hardcoded for now — swap for a
-/// real geolocation provider (e.g. via the `geolocator` package) once
-/// location permissions are wired up. Every screen downstream should
-/// depend on THIS provider, not call geolocation directly, so swapping
-/// the source later doesn't ripple through the UI.
 final searchCenterProvider = Provider<GeoPoint?>((ref) {
   final profile = ref.watch(myPlayerProfileProvider).value;
   return profile?.homeLocation;
@@ -99,7 +99,7 @@ final nearbyMatchupsProvider = StreamProvider<List<Matchup>>((ref) {
   final repo = ref.watch(matchupRepositoryProvider);
   final center = ref.watch(searchCenterProvider);
   final uid = ref.watch(currentUserIdProvider);
-  return repo.nearbyMatchups(center: center, radiusKm: 10, excludeUserId: uid);
+  return repo.nearbyMatchups(center: center, radiusKm: 250, excludeUserId: uid);
 });
 
 final matchupFromIdProvider = FutureProvider.family<Matchup, String>((ref, uid) async {
@@ -142,15 +142,13 @@ final chatMessagesProvider = StreamProvider.family<List<ChatMessage>, String>((r
   return repo.watchMessages(chatId);
 });
 
-final myLockedMatchIdsProvider = StreamProvider<List<String>?>((ref) {
-  final repo = ref.watch(matchRepositoryProvider);
-  final uid = ref.watch(currentUserIdProvider);
-  return repo.watchMyLockedMatchIds(uid);
-});
-
 final matchProvider = StreamProvider.family<MatchDoc, String>((ref, matchId) {
   final repo = ref.watch(matchRepositoryProvider);
   return repo.watchMatch(matchId);
 });
 
-
+final lockedMatchesProvider = StreamProvider<List<MatchDoc>?>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  final repo = ref.watch(matchRepositoryProvider);
+  return repo.watchLockedMatches(uid);
+});

@@ -13,4 +13,23 @@ class Utils {
       cornerRadius = 20;
     }
   }
+
+  static final _months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  static String formatDate(DateTime date) {
+    return '${date.day} ${_months[date.month - 1]} at ${date.hour}:${date.minute}';
+  }
 }

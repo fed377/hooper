@@ -6,17 +6,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hooper/data/auth/authgate.dart';
+import 'package:hooper/data/fcmservice.dart';
+import 'package:hooper/data/gates/auth_gate.dart';
 import 'package:hooper/firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  //if (kDebugMode) {
-  //  FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
-  //  FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
-  //  await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-  //}
+  await FCMService().init();
   runApp(ProviderScope(child: const HooperApp()));
 }
 
@@ -25,10 +22,23 @@ class HooperApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
-      theme: ThemeData.light().copyWith(textTheme: GoogleFonts.rubikTextTheme()),
+    double rad = 24;
+    final theme = ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 3, 108, 255)),
+      textTheme: GoogleFonts.rubikTextTheme(),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+      ),
     );
+    return MaterialApp(debugShowCheckedModeBanner: false, home: const AuthGate(), theme: theme);
   }
 }

@@ -39,7 +39,7 @@ export const proposeMatch = onCall(async (request) => {
   }
 
   const db = getFirestore();
-  const requesterRef = db.collection("playerProfiles").doc(uid);
+  //const requesterRef = db.collection("playerProfiles").doc(uid);
   const targetRef = db.collection("playerProfiles").doc(targetIdTrim);
   const matchRequestRef = db.collection("matchRequests").doc();
   const chatId = pairChatId(uid, targetId);
@@ -47,26 +47,13 @@ export const proposeMatch = onCall(async (request) => {
   const proposalText = `Proposed ${court.trim()} at ${scheduledTimestamp.toDate().toLocaleString()}`;
 
   await db.runTransaction(async (tx) => {
-    const [requesterSnap, targetSnap, chatSnap] = await Promise.all([
-      tx.get(requesterRef),
+    const [targetSnap, chatSnap] = await Promise.all([
       tx.get(targetRef),
       tx.get(chatRef),
     ]);
 
     if (!targetSnap.exists) {
       throw new HttpsError("not-found", "That player no longer exists.");
-    }
-    if (requesterSnap.data()?.isLocked) {
-      throw new HttpsError(
-        "failed-precondition",
-        "You're already in an active match.",
-      );
-    }
-    if (targetSnap.data()?.isLocked) {
-      throw new HttpsError(
-        "failed-precondition",
-        "That player just got locked into another match.",
-      );
     }
 
     const priorRequestId = chatSnap.data()?.lastMatchRequestId as
@@ -98,10 +85,12 @@ export const proposeMatch = onCall(async (request) => {
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    tx.update(chatRef, {lastMatchRequestId: matchRequestRef.id});
+    tx.update(chatRef, { lastMatchRequestId: matchRequestRef.id });
 
-    postSystemMessage(tx, chatRef, proposalText, {matchRequestId: matchRequestRef.id});
+    postSystemMessage(tx, chatRef, proposalText, {
+      matchRequestId: matchRequestRef.id,
+    });
   });
 
-  return {matchRequestId: matchRequestRef.id, chatId: chatRef.id};
+  return { matchRequestId: matchRequestRef.id, chatId: chatRef.id };
 });

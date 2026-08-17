@@ -29,10 +29,7 @@ export const cancelRequest = onCall(async (request) => {
         `This request is already ${req.status}.`,
       );
     }
-    // Distinct from declineRequest: only the person who SENT the
-    // challenge can withdraw it this way. The target says no via
-    // declineRequest instead — kept as separate statuses
-    // ("withdrawn" vs "declined") so the history reads correctly.
+    
     if (uid !== req.initiatorId) {
       throw new HttpsError(
         "permission-denied",

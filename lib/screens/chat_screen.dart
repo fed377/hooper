@@ -3,6 +3,7 @@ import 'dart:developer' show log;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
+import 'package:hooper/screens/propose_screen.dart';
 
 import '../data/providers.dart';
 import '../data/repos/match_repo.dart';
@@ -10,14 +11,13 @@ import '../models/match.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
-  final void Function()? onPropose;
-  const ChatScreen({super.key, required this.chatId, required this.onPropose});
+  const ChatScreen({super.key, required this.chatId});
 
   @override
-  ConsumerState<ChatScreen> createState() => _MatchNegotiationScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
 
@@ -132,21 +132,27 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
     return requestAsync.when(
       loading: () => const LinearProgressIndicator(minHeight: 2),
       error: (err, _) => const SizedBox.shrink(),
-      data: (request) => Column(
-        children: [
-          _DetailsWidget(
-            request: request,
-            editing: _editingDetails,
-            busy: _busy,
-            courtController: _courtController,
-            editedTime: _editedTime,
-            onEdit: () => _startEditingDetails(request),
-            onPickTime: _pickEditedTime,
-            onSave: () => _saveDetails(requestId),
-            onCancelEdit: () => setState(() => _editingDetails = false),
+      data: (request) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: ClipRSuperellipse(
+          borderRadius: BorderRadius.circular(24),
+          child: Column(
+            children: [
+              _DetailsWidget(
+                request: request,
+                editing: _editingDetails,
+                busy: _busy,
+                courtController: _courtController,
+                editedTime: _editedTime,
+                onEdit: () => _startEditingDetails(request),
+                onPickTime: _pickEditedTime,
+                onSave: () => _saveDetails(requestId),
+                onCancelEdit: () => setState(() => _editingDetails = false),
+              ),
+              _StatusBanner(status: request.status),
+            ],
           ),
-          _StatusBanner(status: request.status),
-        ],
+        ),
       ),
     );
   }
@@ -177,15 +183,32 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
                   if (msg.isSystem) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Center(
-                        child: Text(
-                          msg.text,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontStyle: FontStyle.italic,
-                            color: Theme.of(context).colorScheme.outline,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          const SizedBox(width: 25),
+                          Flexible(
+                            fit: FlexFit.tight,
+                            child: Container(
+                              decoration: ShapeDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainer,
+                                shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  msg.text,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontStyle: FontStyle.italic,
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
+                          const SizedBox(width: 25),
+                        ],
                       ),
                     );
                   }
@@ -196,11 +219,11 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
                       margin: const EdgeInsets.symmetric(vertical: 3),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                      decoration: BoxDecoration(
+                      decoration: ShapeDecoration(
                         color: isMine
                             ? Theme.of(context).colorScheme.primaryContainer
                             : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(14),
+                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: Text(msg.text),
                     ),
@@ -236,20 +259,18 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
     return requestAsync.maybeWhen(
       data: (request) {
         if (request.status == MatchRequestStatus.accepted) {
-          // TODO: navigate into the locked/match screen once it exists.
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Text("You're locked in! Head to the court.", textAlign: TextAlign.center),
           );
         }
-
         if (request.status != MatchRequestStatus.pending) {
           return Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 Expanded(
-                  child: FilledButton(onPressed: _busy ? null : widget.onPropose, child: Text("Play")),
+                  child: FilledButton(onPressed: _busy ? null : ProposeMatchScreen.pushProposal(otherId, context), child: Text("Play")),
                 ),
               ],
             ),
@@ -257,6 +278,7 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
         }
 
         final isInitiator = request.isInitiator(uid);
+        final lockedMatchesAsync = ref.watch(lockedMatchesProvider);
 
         return Padding(
           padding: const EdgeInsets.all(12),
@@ -277,6 +299,29 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
+                lockedMatchesAsync.when(
+                  data: (List<MatchDoc>? data) {
+                    final rs = request.scheduledTime;
+                    final re = rs.add(Duration(hours: 1));
+                    bool pass = _checkConflict(data, rs, re) ?? true;
+                    if (pass) {
+                      return Expanded(
+                        child: FilledButton(
+                          onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
+                          child: const Text('Accept'),
+                        ),
+                      );
+                    } else {
+                      return Expanded(child: FilledButton(onPressed: null, child: const Text('Schedule conflict')));
+                    }
+                  },
+                  error: (Object error, StackTrace stackTrace) {
+                    return Text("Something went wrong");
+                  },
+                  loading: () {
+                    return const CircularProgressIndicator();
+                  },
+                ),
                 Expanded(
                   child: FilledButton(
                     onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
@@ -290,6 +335,15 @@ class _MatchNegotiationScreenState extends ConsumerState<ChatScreen> {
       },
       orElse: () => const SizedBox.shrink(),
     );
+  }
+
+  bool? _checkConflict(List<MatchDoc>? data, DateTime rs, DateTime re) {
+    return data?.every((doc) {
+      final st = doc.scheduledTime;
+      final et = st.add(Duration(hours: 1));
+      final ol = (st.isBefore(rs) && et.isAfter(rs)) || (st.isBefore(re) && et.isAfter(re));
+      return !ol;
+    });
   }
 }
 
@@ -313,11 +367,16 @@ class _StatusBanner extends StatelessWidget {
       case MatchRequestStatus.pending:
       case MatchRequestStatus.accepted:
         message = null;
+      case MatchRequestStatus.finished:
+        message = "This match is finished";
     }
     if (message == null) return const SizedBox.shrink();
     return Container(
+      decoration: ShapeDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+      ),
       width: double.infinity,
-      color: Theme.of(context).colorScheme.errorContainer,
       padding: const EdgeInsets.all(10),
       child: Text(message, textAlign: TextAlign.center),
     );
@@ -354,10 +413,7 @@ class _DetailsWidget extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
-      ),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHigh),
       child: editing
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

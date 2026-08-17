@@ -81,7 +81,6 @@ class FirestoreMatchupRepository implements MatchupRepository {
       final cell = cells[i];
       final sub = _firestore
           .collection('playerProfiles')
-          .where('isLocked', isEqualTo: false)
           .orderBy('geohash')
           .startAt([cell])
           .endAt(['$cell~'])

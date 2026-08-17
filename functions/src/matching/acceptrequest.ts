@@ -40,23 +40,6 @@ export const acceptRequest = onCall(async (request) => {
 
     const sourceRef = db.collection("playerProfiles").doc(req.initiatorId);
     const targetRef = db.collection("playerProfiles").doc(req.targetId);
-    const [initiatorSnap, targetSnap] = await Promise.all([
-      tx.get(sourceRef),
-      tx.get(targetRef),
-    ]);
-
-    if (initiatorSnap.data()?.isLocked) {
-      throw new HttpsError(
-        "failed-precondition",
-        "The challenger is no longer available.",
-      );
-    }
-    if (targetSnap.data()?.isLocked) {
-      throw new HttpsError(
-        "failed-precondition",
-        "You're already locked into another match.",
-      );
-    }
 
     tx.set(matchRef, {
       mode: req.mode,
@@ -71,14 +54,14 @@ export const acceptRequest = onCall(async (request) => {
 
     tx.update(requestRef, { status: "accepted", matchId: matchRef.id });
 
-    tx.update(sourceRef, { isLocked: true, lockedMatchId: matchRef.id });
-    tx.update(targetRef, { isLocked: true, lockedMatchId: matchRef.id });
+    tx.update(sourceRef, {lockedMatchIds: FieldValue.arrayUnion(matchRef.id)});
+    tx.update(targetRef, {lockedMatchIds: FieldValue.arrayUnion(matchRef.id)});
 
     const chatRef = db.collection("chats").doc(req.chatId);
     postSystemMessage(
       tx,
       chatRef,
-      "Match confirmed! You're both locked in.",
+      "Match confirmed! You're both scheduled to play.",
       {matchRequestId: matchRequestId}
     );
   });

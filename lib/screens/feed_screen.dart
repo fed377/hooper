@@ -73,22 +73,13 @@ class MatchupFeedScreen extends ConsumerWidget {
               return MatchupCard(
                 matchup: matchup,
                 hasChallengedYou: incomingRequestId != null,
-                onChallenge: () => showModalBottomSheet(
-                  showDragHandle: true,
-                  context: context,
-                  builder: (context) {
-                    return ProposeMatchScreen(target: matchup);
-                  },
-                ),
+                onChallenge: () => ProposeMatchScreen.pushProposal(matchup.id, context),
                 onAccept: incomingRequestId == null
                     ? null
                     : () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => ChatScreen(
                             chatId: incomingRequestId,
-                            onPropose: () => Navigator.of(
-                              context,
-                            ).push(MaterialPageRoute(builder: (_) => ProposeMatchScreen(target: matchup))),
                           ),
                         ),
                       ),
@@ -96,9 +87,6 @@ class MatchupFeedScreen extends ConsumerWidget {
                   MaterialPageRoute(
                     builder: (_) => ChatScreen(
                       chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider)),
-                      onPropose: () => Navigator.of(
-                        context,
-                      ).push(MaterialPageRoute(builder: (_) => ProposeMatchScreen(target: matchup))),
                     ),
                   ),
                 ),

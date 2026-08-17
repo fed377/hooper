@@ -1,4 +1,4 @@
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 export const cancelMatch = onCall(async (request) => {
@@ -37,8 +37,8 @@ export const cancelMatch = onCall(async (request) => {
     const sideBRef = db.collection("playerProfiles").doc(match.sideBId);
 
     tx.update(matchRef, {status: "cancelled"});
-    tx.update(sideARef, {isLocked: false, lockedMatchId: null});
-    tx.update(sideBRef, {isLocked: false, lockedMatchId: null});
+    tx.update(sideARef, {lockedMatchIds: FieldValue.arrayRemove(matchId)});
+    tx.update(sideBRef, {lockedMatchIds: FieldValue.arrayRemove(matchId)});
   });
 
   return {ok: true};

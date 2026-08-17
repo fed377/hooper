@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:hooper/widgets/match_list_tile.dart';
+
 import '../data/providers.dart';
 import '../models/matchup.dart' show tierForElo, tierLabel;
 import '../models/player_profile.dart';
@@ -39,8 +41,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _updateLocation(String uid) async {
     setState(() => _updatingLocation = true);
     try {
-      // Standard geolocator permission dance: check first, request if
-      // denied, bail out cleanly on either flavor of "no."
+      // Check permission, request if denied, exit if denied again
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -129,52 +130,80 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildViewMode(PlayerProfile profile) {
     final tier = tierForElo(profile.elo);
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundImage: profile.photoUrl != null ? NetworkImage(profile.photoUrl!) : null,
-          child: profile.photoUrl != null ? Text(profile.displayName.substring(0, 1)) : null,
-        ),
-        const SizedBox(height: 12),
-        Text(profile.displayName, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text(tierLabel(tier), style: Theme.of(context).textTheme.bodyMedium),
-        if (profile.locked) ...[
-          const SizedBox(height: 8),
-          const Chip(label: Text('Currently locked in an active match')),
-        ],
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            _StatBox(label: '1v1 elo', value: '${profile.elo}'),
-            const SizedBox(width: 12),
-            _StatBox(label: 'Games played', value: '${profile.gamesPlayed1v1}'),
-          ],
-        ),
-        const SizedBox(height: 20),
-        if (profile.bio.isNotEmpty) ...[
-          Text('Bio', style: Theme.of(context).textTheme.titleSmall),
+    double radius = 40;
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 40,
+            backgroundImage: profile.photoUrl != null ? NetworkImage(profile.photoUrl!) : null,
+            child: profile.photoUrl != null ? Text(profile.displayName.substring(0, 1)) : null,
+          ),
+          const SizedBox(height: 12),
+          Text(profile.displayName, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
-          Text(profile.bio),
+          Text(tierLabel(tier), style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _StatBox(label: '1v1 elo', value: '${profile.elo}'),
+              const Spacer(),
+              _StatBox(label: 'Games played', value: '${profile.gamesPlayed1v1}'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (profile.bio.isNotEmpty) ...[
+            Text('Bio', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(profile.bio),
+            const SizedBox(height: 16),
+          ],
+          Text(['${profile.height} cm', playerPositionFromInt(profile.position)].join(' · ')),
+          const SizedBox(height: 8),
+          Text(
+            'Visible to players within ${profile.visibilityRadius.toStringAsFixed(0)} km',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _updatingLocation ? null : () => _updateLocation(profile.userId),
+            icon: _updatingLocation
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.my_location),
+            label: Text(profile.homeLocation == null ? "Set my location so I show up nearby" : 'Update my location'),
+          ),
+          if ((profile.lockedMatchIds.isNotEmpty))
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.all(16),
+                decoration: ShapeDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(radius)),
+                ),
+                child: ListView.builder(
+                  itemCount: profile.lockedMatchIds.length,
+                  itemBuilder: (context, i) {
+                    final matchId = profile.lockedMatchIds[i];
+                    final matchAsync = ref.watch(matchProvider(matchId));
+                    return matchAsync.when(
+                      data: (match) => MatchListTile(match: match, uid: profile.userId, radius: radius - 16),
+                      error: (e, st) {
+                        log(st.toString());
+                        log(e.toString());
+                        return Text("Something went wrong. ");
+                      },
+                      loading: () =>
+                          Container(color: Colors.red, width: 16, height: 16, child: CircularProgressIndicator()),
+                    );
+                  },
+                ),
+              ),
+            )
+          else
+            Text("You have not completed any matches yet"),
         ],
-        Text(['${profile.height} cm', profile.position].join(' · ')),
-        const SizedBox(height: 8),
-        Text(
-          'Visible to players within ${profile.visibilityRadius.toStringAsFixed(0)} km',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: _updatingLocation ? null : () => _updateLocation(profile.userId),
-          icon: _updatingLocation
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.my_location),
-          label: Text(profile.homeLocation == null ? "Set my location so I show up nearby" : 'Update my location'),
-        ),
-      ],
+      ),
     );
   }
 
@@ -250,9 +279,9 @@ class _StatBox extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
+          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

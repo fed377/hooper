@@ -291,7 +291,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
                           source: ImageSource.gallery,
                           maxWidth: 512,
                           maxHeight: 512,
-                          imageQuality: 75,
+                          imageQuality: 50,
                         );
                         setState(() {});
                       },
@@ -308,9 +308,8 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
 
                         bannerImage = await picker.pickImage(
                           source: ImageSource.gallery,
-                          maxWidth: 512,
-                          maxHeight: 512,
-                          imageQuality: 75,
+                          maxWidth: 1080,
+                          maxHeight: 1080,
                         );
 
                         setState(() {});

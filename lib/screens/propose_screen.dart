@@ -2,6 +2,7 @@ import 'dart:developer' show log;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/models/match.dart';
 import 'package:hooper/screens/chat_screen.dart';
 
 import '../../data/providers.dart';
@@ -9,8 +10,18 @@ import '../../data/repos/matchup_repo.dart';
 import '../../models/matchup.dart';
 
 class ProposeMatchScreen extends ConsumerStatefulWidget {
-  final Matchup target;
-  const ProposeMatchScreen({super.key, required this.target});
+  final String targetId;
+  const ProposeMatchScreen({super.key, required this.targetId});
+
+  static pushProposal(final String targetId, BuildContext context) {
+    showModalBottomSheet(
+      showDragHandle: true,
+      context: context,
+      builder: (context) {
+        return ProposeMatchScreen(targetId: targetId);
+      },
+    );
+  }
 
   @override
   ConsumerState<ProposeMatchScreen> createState() => _ProposeMatchScreenState();
@@ -42,14 +53,11 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
     setState(() => _sending = true);
     try {
       final repo = ref.read(matchupRepositoryProvider);
-      final response = await repo.proposeMatch(targetId: widget.target.id, court: court, scheduledTime: _selectedTime!);
+      final response = await repo.proposeMatch(targetId: widget.targetId, court: court, scheduledTime: _selectedTime!);
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ChatScreen(chatId: response.chatId, onPropose: null)));
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ChatScreen(chatId: response.chatId)));
     } on ProposeMatchException catch (e) {
       if (!mounted) return;
-      // failed-precondition here specifically means "they got locked
-      // by someone else between when the feed loaded and now" — worth
-      // a distinct message rather than a generic error.
       log(e.toString());
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
@@ -59,45 +67,80 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Challenge ${widget.target.displayName}')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('Where do you want to play?', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _courtController,
-            onChanged: (_) => setState(() {}), // keep Send button's enabled state live
-            decoration: const InputDecoration(
-              labelText: 'Court',
-              hintText: 'e.g. Riverside Courts, west hoop',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text('When?', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _pickTime,
-            child: Text(_selectedTime == null ? 'Pick date & time' : _selectedTime.toString()),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Both of these are just a starting point — you'll be able to "
-            "discuss and change them with ${widget.target.displayName} in chat "
-            "before they accept.",
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: (_courtController.text.trim().isNotEmpty && _selectedTime != null && !_sending) ? _send : null,
-            child: _sending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Send challenge'),
-          ),
-        ],
-      ),
+    final matchupAsync = ref.watch(matchupFromIdProvider(widget.targetId));
+    return matchupAsync.when(
+      data: (Matchup data) {
+        return _buildBody(context, data);
+      },
+      error: (Object error, StackTrace stackTrace) {
+        return Center(child: Text(error.toString()));
+      },
+      loading: () {
+        return Center(child: const CircularProgressIndicator());
+      },
     );
+  }
+
+  Widget _buildBody(BuildContext context, Matchup target) {
+    final lockedMatchesAsync = ref.watch(lockedMatchesProvider);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text('Challenge ${target.displayName}', style: Theme.of(context).textTheme.titleLarge),
+        Text('Where do you want to play?', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _courtController,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Court',
+            hintText: 'e.g. Riverside Courts, west hoop',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text('When?', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: _pickTime,
+          child: Text(_selectedTime == null ? 'Pick date & time' : _selectedTime.toString()),
+        ),
+        const SizedBox(height: 24),
+        lockedMatchesAsync.when(
+          data: (data) {
+            bool pass = checkPass(data);
+            return FilledButton(
+              onPressed: (_courtController.text.trim().isNotEmpty && !_sending && pass) ? _send : null,
+              child: _sending
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Send challenge'),
+            );
+          },
+          error: (Object error, StackTrace stackTrace) {
+            return Text(error.toString());
+          },
+          loading: () {
+            return const SizedBox(width: 16, height: 16, child: CircularProgressIndicator());
+          },
+        ),
+      ],
+    );
+  }
+
+  bool? _checkConflict(List<MatchDoc>? data, DateTime rs, DateTime re) {
+    return data?.every((doc) {
+      final st = doc.scheduledTime;
+      final et = st.add(Duration(hours: 1));
+      final ol = (st.isBefore(rs) && et.isAfter(rs)) || (st.isBefore(re) && et.isAfter(re));
+      return !ol;
+    });
+  }
+
+  bool checkPass(List<MatchDoc>? data) {
+    final rs = _selectedTime;
+    if (rs == null) return false;
+    final re = rs.add(Duration(hours: 1));
+    bool pass = _checkConflict(data, rs, re) ?? true;
+    return pass;
   }
 }

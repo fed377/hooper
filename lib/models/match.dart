@@ -1,4 +1,6 @@
-enum MatchStatus { scheduled, awaitingConfirmation, confirmed, disputed, cancelled, happening }
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum MatchStatus { scheduled, awaitingConfirmation, confirmed, disputed, cancelled, inProgress }
 
 MatchStatus matchStatusFromString(String value) {
   switch (value) {
@@ -12,8 +14,8 @@ MatchStatus matchStatusFromString(String value) {
       return MatchStatus.disputed;
     case 'cancelled':
       return MatchStatus.cancelled;
-    case 'happening':
-      return MatchStatus.happening;
+    case 'in_progress':
+      return MatchStatus.inProgress;
     default:
       throw ArgumentError('Unknown match status: $value');
   }
@@ -26,11 +28,13 @@ class MatchDoc {
   final String sideBId;
   final String court;
   final DateTime scheduledTime;
+  final DateTime? confirmedAt;
   final MatchStatus status;
   final int? scoreA;
   final int? scoreB;
   final int? eloDeltaA;
   final int? eloDeltaB;
+  final Map<String, dynamic>? scoreSubmissions;
 
   MatchDoc({
     required this.id,
@@ -39,11 +43,13 @@ class MatchDoc {
     required this.sideBId,
     required this.court,
     required this.scheduledTime,
+    required this.confirmedAt,
     required this.status,
     this.scoreA,
     this.scoreB,
     this.eloDeltaA,
     this.eloDeltaB,
+    this.scoreSubmissions,
   });
 
   factory MatchDoc.fromJson(Map<String, dynamic> json) {
@@ -53,12 +59,14 @@ class MatchDoc {
       sideAId: json['sideAId'] as String,
       sideBId: json['sideBId'] as String,
       court: json['court'] as String,
-      scheduledTime: (json['scheduledTime'] as DateTime),
+      scheduledTime: (json['scheduledTime'] as Timestamp).toDate(),
+      confirmedAt: (json['confirmedAt'] as Timestamp?)?.toDate(),
       status: matchStatusFromString(json['status'] as String),
       scoreA: json['scoreA'] as int?,
       scoreB: json['scoreB'] as int?,
       eloDeltaA: json['eloDeltaA'] as int?,
       eloDeltaB: json['eloDeltaB'] as int?,
+      scoreSubmissions: (json['scoreSubmissions'] as Map?)?.cast<String, dynamic>(),
     );
   }
 
@@ -68,10 +76,26 @@ class MatchDoc {
     return null;
   }
 
-  int? myElo(String uid) => mySide(uid) == 'A' ? eloDeltaA : (mySide(uid) == 'B' ? eloDeltaB : null);
+  int? myEloDelta(String uid) => mySide(uid) == 'A' ? eloDeltaA : (mySide(uid) == 'B' ? eloDeltaB : null);
+
+  bool hasSubmitted(String uid) {
+    final side = mySide(uid);
+    if (side == null) return false;
+    return scoreSubmissions?[side] != null;
+  }
+
+  String otherParticipant(String myId) => myId == sideAId ? sideBId : sideAId;
+
+  (int, int)? reportedBy(String side) {
+    final sub = scoreSubmissions?[side] as Map?;
+    if (sub == null) return null;
+    final scoreA = sub['scoreA'] as int;
+    final scoreB = sub['scoreB'] as int;
+    return side == 'A' ? (scoreA, scoreB) : (scoreB, scoreA);
+  }
 }
 
-enum MatchRequestStatus { pending, accepted, declined, expired, withdrawn }
+enum MatchRequestStatus { pending, accepted, declined, expired, withdrawn, finished }
 
 MatchRequestStatus matchRequestStatusFromString(String value) {
   switch (value) {
@@ -85,6 +109,8 @@ MatchRequestStatus matchRequestStatusFromString(String value) {
       return MatchRequestStatus.expired;
     case 'withdrawn':
       return MatchRequestStatus.withdrawn;
+    case 'finished':
+      return MatchRequestStatus.finished;
     default:
       throw ArgumentError('Unknown match request status: $value');
   }
@@ -98,7 +124,7 @@ class MatchRequestDoc {
   final String court;
   final DateTime scheduledTime;
   final MatchRequestStatus status;
-  final String? matchId;
+  final String? matchId; // set once accepted
   final String chatId;
   final DateTime createdAt;
 

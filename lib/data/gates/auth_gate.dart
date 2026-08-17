@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/data/fcmservice.dart';
+import 'package:hooper/data/gates/lock_gate.dart';
 import 'package:hooper/data/heartbeat.dart';
-import 'package:hooper/screens/home_screen.dart';
 import 'package:hooper/screens/profile_fill_screen.dart';
 
 import '../../../data/providers.dart';
@@ -38,6 +39,7 @@ class AuthGate extends ConsumerWidget {
                 if (birthDate == null) {
                   return const ProfileFillScreen();
                 }
+                FCMService().registerFcmToken(user.uid);
                 return ActivityHeartbeat(uid: user.uid, child: LockGate());
               },
             );
@@ -45,16 +47,6 @@ class AuthGate extends ConsumerWidget {
         );
       },
     );
-  }
-}
-
-class LockGate extends ConsumerWidget {
-  const LockGate({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final myLockedMatchesProvider = ref.watch(myLockedMatchIdsProvider);
-    return Center(child: const HomePage());
   }
 }
 

@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage> {
 
     return Padding(
       padding: const EdgeInsets.all(12.0),
-      child: ClipRRect(
+      child: ClipRSuperellipse(
         borderRadius: BorderRadius.circular(rad),
         child: Container(
           decoration: BoxDecoration(
@@ -62,9 +62,9 @@ class _HomePageState extends State<HomePage> {
                 child: FractionallySizedBox(
                   widthFactor: 0.25,
                   child: Container(
-                    decoration: BoxDecoration(
+                    decoration: ShapeDecoration(
                       color: const Color.fromARGB(134, 212, 212, 212),
-                      borderRadius: BorderRadius.circular(rad - 8),
+                      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad - 8)),
                     ),
                     margin: EdgeInsets.all(8),
                   ),

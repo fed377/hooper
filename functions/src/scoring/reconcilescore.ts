@@ -45,11 +45,6 @@ export const reconcileScore = onDocumentUpdated(
       const aData = aSnap.data()!;
       const bData = bSnap.data()!;
 
-      const aRecentForm: boolean[] = aData.recentForm ?? [];
-      const bRecentForm: boolean[] = bData.recentForm ?? [];
-      const aFormUpdated = [aWon, ...aRecentForm].slice(0, 5);
-      const bFormUpdated = [!aWon, ...bRecentForm].slice(0, 5);
-
       const aResult = calculateElo({
         rating: aData.elo,
         opponentRating: bData.elo,
@@ -65,6 +60,11 @@ export const reconcileScore = onDocumentUpdated(
         pointDiff,
       });
 
+      const aRecentForm: boolean[] = aData.recentForm ?? [];
+      const bRecentForm: boolean[] = bData.recentForm ?? [];
+      const aFormUpdated = [aWon, ...aRecentForm].slice(0, 5);
+      const bFormUpdated = [!aWon, ...bRecentForm].slice(0, 5);
+
       tx.update(matchRef, {
         status: "confirmed",
         scoreA,
@@ -77,16 +77,16 @@ export const reconcileScore = onDocumentUpdated(
       tx.update(sideARef, {
         elo: aResult.newRating,
         gamesPlayed1v1: FieldValue.increment(1),
-        isLocked: false,
         recentForm: aFormUpdated,
-        lockedMatchId: null,
+        lockedMatchIds: FieldValue.arrayRemove(event.params.matchId),
+        completedMatches: FieldValue.arrayUnion(event.params.matchId),
       });
       tx.update(sideBRef, {
         elo: bResult.newRating,
         gamesPlayed1v1: FieldValue.increment(1),
-        isLocked: false,
         recentForm: bFormUpdated,
-        lockedMatchId: null,
+        lockedMatchIds: FieldValue.arrayRemove(event.params.matchId),
+        completedMatches: FieldValue.arrayUnion(event.params.matchId),
       });
 
       tx.set(matchRef.collection("eloHistory").doc(), {
