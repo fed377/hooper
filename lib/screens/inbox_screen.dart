@@ -105,8 +105,6 @@ class _ConversationTile extends ConsumerWidget {
 
     final imageUrl = ref.watch(playerPhotoUrlProvider(otherId));
 
-    //TODO: Make it so that this widget can somehow tell when a match is finished, and show it
-
     return ListTile(
       leading: imageUrl.when(
         data: (val) {
@@ -129,7 +127,7 @@ class _ConversationTile extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(_relativeTime(lastActivity), style: Theme.of(context).textTheme.bodySmall),
-          //if (statusChip != null) statusChip,
+          if (statusChip != null) statusChip,
         ],
       ),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: chat.id))),

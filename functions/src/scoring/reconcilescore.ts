@@ -36,6 +36,7 @@ export const reconcileScore = onDocumentUpdated(
       const freshSnap = await tx.get(matchRef);
       if (freshSnap.data()?.status === "confirmed") return;
 
+      const reqRef = db.collection("matchRequests").doc(after.requestId);
       const sideARef = db.collection("playerProfiles").doc(after.sideAId);
       const sideBRef = db.collection("playerProfiles").doc(after.sideBId);
       const [aSnap, bSnap] = await Promise.all([
@@ -73,6 +74,8 @@ export const reconcileScore = onDocumentUpdated(
         eloDeltaA: aResult.delta,
         eloDeltaB: bResult.delta,
       });
+
+      tx.update(reqRef, { status: "finished" });
 
       tx.update(sideARef, {
         elo: aResult.newRating,

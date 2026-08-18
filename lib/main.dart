@@ -39,6 +39,11 @@ class HooperApp extends StatelessWidget {
         style: IconButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
       ),
     );
-    return MaterialApp(debugShowCheckedModeBanner: false, home: const AuthGate(), theme: theme);
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: const AuthGate(),
+      theme: theme,
+      navigatorKey: FCMService().navigatorKey,
+    );
   }
 }

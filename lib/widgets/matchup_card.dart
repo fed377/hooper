@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooper/models/matchup.dart';
-import 'package:hooper/utils.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
 class MatchupCard extends StatefulWidget {
@@ -32,9 +31,12 @@ class _MatchupCardState extends State<MatchupCard> {
     return Padding(
       padding: const EdgeInsets.only(top: 46, left: 12, right: 12, bottom: 12),
       child: ClipRSuperellipse(
-        borderRadius: BorderRadius.circular((Utils.cornerRadius ?? 20) + 10),
+        borderRadius: BorderRadius.circular(44),
         child: Container(
-          decoration: BoxDecoration(color: Colors.black),
+          decoration: ShapeDecoration(
+            color: Colors.black,
+            shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(44)),
+          ),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -59,9 +61,7 @@ class _MatchupCardState extends State<MatchupCard> {
                   child: Container(
                     decoration: ShapeDecoration(
                       color: Colors.white,
-                      shape: RoundedSuperellipseBorder(
-                        borderRadius: BorderRadius.circular((Utils.cornerRadius ?? 20) - 2),
-                      ),
+                      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(32)),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: spacing),
