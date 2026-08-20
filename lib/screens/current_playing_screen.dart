@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/widgets/loading_screen_widget.dart';
 
 import '../data/providers.dart';
 import '../data/repos/match_repo.dart';
-import '../models/match.dart';
+import '../models/match_doc.dart';
 
 class CurrentlyPlayingScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -36,6 +37,32 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     }
   }
 
+  Future<void> _confirmCancel(BuildContext context, WidgetRef ref, MatchDoc match) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel this match?'),
+        content: const Text("This can't be undone — you'll both need to reschedule."),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Back')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Cancel match')),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(matchRepositoryProvider).cancelMatch(match.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Match cancelled.')));
+      }
+    } on MatchActionException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = ref.watch(currentUserIdProvider);
@@ -44,11 +71,26 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     return Scaffold(
       appBar: AppBar(title: const Text('Match in progress'), automaticallyImplyLeading: false),
       body: matchAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => FullScreenLoader(),
         error: (err, _) => Center(
           child: Padding(padding: const EdgeInsets.all(24), child: Text('Could not load this match: $err')),
         ),
-        data: (match) => _buildBody(match, uid),
+        data: (match) {
+          if ((match.appearedIds ?? []).length >= 2) {
+            return _buildBody(match, uid);
+          } else {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Your opponent hasn't shown up. \nPlease wait for them to show up\nor cancel"),
+                  const SizedBox(height: 8),
+                  FilledButton(onPressed: () => _confirmCancel(context, ref, match), child: Text("Cancel Match")),
+                ],
+              ),
+            );
+          }
+        },
       ),
     );
   }
@@ -103,10 +145,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
               color: Theme.of(context).colorScheme.errorContainer,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
-              "Your scores didn't match. Double-check what actually happened and submit again.",
-              textAlign: TextAlign.center,
-            ),
+            child: const Text("Your scores didn't match. Double-check and submit again.", textAlign: TextAlign.center),
           ),
 
         _SubmissionCard(
@@ -127,6 +166,10 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
           ),
         ] else
           _buildEntryForm(),
+        if (match.scoreSubmissions?.isEmpty ?? true) ...[
+          const SizedBox(height: 14),
+          FilledButton(onPressed: () => _confirmCancel(context, ref, match), child: Text("Cancel Match")),
+        ],
       ],
     );
   }
@@ -161,6 +204,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Submit score'),
         ),
+        const SizedBox(height: 8),
       ],
     );
   }

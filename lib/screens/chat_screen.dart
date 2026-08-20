@@ -3,11 +3,15 @@ import 'dart:developer' show log;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
+import 'package:hooper/models/chat_message.dart';
+import 'package:hooper/models/match_request_doc.dart';
 import 'package:hooper/screens/propose_screen.dart';
+import 'package:hooper/widgets/loading_screen_widget.dart';
+import 'package:hooper/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
 import '../data/repos/match_repo.dart';
-import '../models/match.dart';
+import '../models/match_doc.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
@@ -105,7 +109,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       ),
       body: chatAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const FullScreenLoader(),
         error: (err, st) {
           log(st.toString());
           return Center(child: Text('Could not load this chat: $err'));
@@ -162,17 +166,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Column(
       children: [
         Expanded(
-          child: messagesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Could not load chat: $err')),
-            data: (messages) {
+          child: SkeletonWidget(
+            val: messagesAsync,
+            dummyData: ChatMessage.dummyList(uid),
+            builder: (List<ChatMessage> messages) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (_scrollController.hasClients) {
                   _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
                 }
               });
               if (messages.isEmpty) {
-                return const Center(child: Text('No messages yet — say hi!'));
+                return const Center(child: Text('No messages yet'));
               }
               return ListView.builder(
                 controller: _scrollController,
@@ -181,53 +185,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 itemBuilder: (context, index) {
                   final msg = messages[index];
                   if (msg.isSystem) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          const SizedBox(width: 25),
-                          Flexible(
-                            fit: FlexFit.tight,
-                            child: Container(
-                              decoration: ShapeDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainer,
-                                shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  msg.text,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontStyle: FontStyle.italic,
-                                    color: Theme.of(context).colorScheme.outline,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 25),
-                        ],
-                      ),
-                    );
+                    return _SystemMessage(msg: msg);
                   }
                   final isMine = msg.senderId == uid;
-                  return Align(
-                    alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 3),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                      decoration: ShapeDecoration(
-                        color: isMine
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: Text(msg.text),
-                    ),
-                  );
+                  return _UserMessage(isMine: isMine, msg: msg);
                 },
               );
             },
@@ -270,7 +231,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: FilledButton(onPressed: _busy ? null : ProposeMatchScreen.pushProposal(otherId, context), child: Text("Play")),
+                  child: FilledButton(
+                    onPressed: _busy ? null : () => ProposeMatchScreen.pushProposal(otherId, context),
+                    child: Text("Play"),
+                  ),
                 ),
               ],
             ),
@@ -299,34 +263,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                lockedMatchesAsync.when(
-                  data: (List<MatchDoc>? data) {
+                SkeletonWidget(
+                  val: lockedMatchesAsync,
+                  dummyData: List<MatchDoc>.empty(),
+                  builder: (List<MatchDoc>? data) {
                     final rs = request.scheduledTime;
                     final re = rs.add(Duration(hours: 1));
                     bool pass = _checkConflict(data, rs, re) ?? true;
-                    if (pass) {
-                      return Expanded(
-                        child: FilledButton(
-                          onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
-                          child: const Text('Accept'),
-                        ),
-                      );
-                    } else {
-                      return Expanded(child: FilledButton(onPressed: null, child: const Text('Schedule conflict')));
-                    }
+                    return pass
+                        ? Expanded(
+                            child: FilledButton(
+                              onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
+                              child: const Text('Accept'),
+                            ),
+                          )
+                        : Expanded(child: FilledButton(onPressed: null, child: const Text('Schedule conflict')));
                   },
-                  error: (Object error, StackTrace stackTrace) {
-                    return Text("Something went wrong");
-                  },
-                  loading: () {
-                    return const CircularProgressIndicator();
-                  },
-                ),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
-                    child: const Text('Accept'),
-                  ),
                 ),
               ],
             ],
@@ -344,6 +296,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final ol = (st.isBefore(rs) && et.isAfter(rs)) || (st.isBefore(re) && et.isAfter(re));
       return !ol;
     });
+  }
+}
+
+class _UserMessage extends StatelessWidget {
+  const _UserMessage({required this.isMine, required this.msg});
+
+  final bool isMine;
+  final ChatMessage msg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+        decoration: ShapeDecoration(
+          color: isMine
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Text(msg.text),
+      ),
+    );
+  }
+}
+
+class _SystemMessage extends StatelessWidget {
+  const _SystemMessage({required this.msg});
+
+  final ChatMessage msg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          const SizedBox(width: 25),
+          Flexible(
+            fit: FlexFit.tight,
+            child: Container(
+              decoration: ShapeDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  msg.text,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 25),
+        ],
+      ),
+    );
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:developer' show log;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class AuthenticationScreen extends StatefulWidget {
   const AuthenticationScreen({super.key});
@@ -124,11 +125,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_isRegistering ? 'Create account' : 'Sign in'),
+              Skeletonizer(
+                enabled: _submitting,
+                child: FilledButton(
+                  onPressed: _submitting ? null : _submit,
+                  child: Text(_isRegistering ? 'Create account' : 'Sign in'),
+                ),
               ),
               const SizedBox(height: 8),
               TextButton(

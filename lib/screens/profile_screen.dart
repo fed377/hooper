@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooper/widgets/match_list_tile.dart';
+import 'package:hooper/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
 import '../models/matchup.dart' show tierForElo, tierLabel;
@@ -41,7 +42,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _updateLocation(String uid) async {
     setState(() => _updatingLocation = true);
     try {
-      // Check permission, request if denied, exit if denied again
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -130,6 +130,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildViewMode(PlayerProfile profile) {
     final tier = tierForElo(profile.elo);
+    final rankAsync = ref.watch(rankProvider(profile.userId));
     double radius = 40;
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -140,6 +141,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             backgroundImage: profile.photoUrl != null ? NetworkImage(profile.photoUrl!) : null,
             child: profile.photoUrl != null ? Text(profile.displayName.substring(0, 1)) : null,
           ),
+          rankAsync.maybeWhen(orElse: () => const SizedBox()),
           const SizedBox(height: 12),
           Text(profile.displayName, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
@@ -173,7 +175,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 : const Icon(Icons.my_location),
             label: Text(profile.homeLocation == null ? "Set my location so I show up nearby" : 'Update my location'),
           ),
-          if ((profile.lockedMatchIds.isNotEmpty))
+          if ((profile.completedMatchIds?.isNotEmpty ?? false))
             Expanded(
               child: Container(
                 padding: EdgeInsets.all(16),
@@ -182,19 +184,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(radius)),
                 ),
                 child: ListView.builder(
-                  itemCount: profile.lockedMatchIds.length,
+                  itemCount: profile.completedMatchIds!.length,
                   itemBuilder: (context, i) {
-                    final matchId = profile.lockedMatchIds[i];
-                    final matchAsync = ref.watch(matchProvider(matchId));
-                    return matchAsync.when(
-                      data: (match) => MatchListTile(match: match, uid: profile.userId, radius: radius - 16),
-                      error: (e, st) {
-                        log(st.toString());
-                        log(e.toString());
-                        return Text("Something went wrong. ");
+                    final matchId = profile.completedMatchIds![i];
+                    final matchAsync = ref.watch(matchAndMatchupProvider((matchId, profile.userId)));
+
+                    return SkeletonWidget(
+                      val: matchAsync,
+                      dummyData: MatchOpponent.dummy(),
+                      builder: (MatchOpponent data) {
+                        return MatchListTile(match: data.match, matchup: data.matchup, radius: radius - 16);
                       },
-                      loading: () =>
-                          Container(color: Colors.red, width: 16, height: 16, child: CircularProgressIndicator()),
                     );
                   },
                 ),

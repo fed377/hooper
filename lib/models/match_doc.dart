@@ -35,6 +35,7 @@ class MatchDoc {
   final int? eloDeltaA;
   final int? eloDeltaB;
   final Map<String, dynamic>? scoreSubmissions;
+  final List<String>? appearedIds;
 
   MatchDoc({
     required this.id,
@@ -50,8 +51,10 @@ class MatchDoc {
     this.eloDeltaA,
     this.eloDeltaB,
     this.scoreSubmissions,
+    required this.appearedIds,
   });
 
+  //Provide ID as extra json parameter
   factory MatchDoc.fromJson(Map<String, dynamic> json) {
     return MatchDoc(
       id: json['id'] as String,
@@ -67,6 +70,21 @@ class MatchDoc {
       eloDeltaA: json['eloDeltaA'] as int?,
       eloDeltaB: json['eloDeltaB'] as int?,
       scoreSubmissions: (json['scoreSubmissions'] as Map?)?.cast<String, dynamic>(),
+      appearedIds: (json['appearedIds'] as List?)?.cast<String>(),
+    );
+  }
+
+  factory MatchDoc.dummy() {
+    return MatchDoc(
+      id: '',
+      mode: '',
+      sideAId: '',
+      sideBId: '',
+      court: '',
+      scheduledTime: DateTime.now(),
+      confirmedAt: DateTime.now(),
+      status: MatchStatus.cancelled,
+      appearedIds: [''],
     );
   }
 
@@ -92,101 +110,5 @@ class MatchDoc {
     final scoreA = sub['scoreA'] as int;
     final scoreB = sub['scoreB'] as int;
     return side == 'A' ? (scoreA, scoreB) : (scoreB, scoreA);
-  }
-}
-
-enum MatchRequestStatus { pending, accepted, declined, expired, withdrawn, finished }
-
-MatchRequestStatus matchRequestStatusFromString(String value) {
-  switch (value) {
-    case 'pending':
-      return MatchRequestStatus.pending;
-    case 'accepted':
-      return MatchRequestStatus.accepted;
-    case 'declined':
-      return MatchRequestStatus.declined;
-    case 'expired':
-      return MatchRequestStatus.expired;
-    case 'withdrawn':
-      return MatchRequestStatus.withdrawn;
-    case 'finished':
-      return MatchRequestStatus.finished;
-    default:
-      throw ArgumentError('Unknown match request status: $value');
-  }
-}
-
-class MatchRequestDoc {
-  final String id;
-  final String mode;
-  final String initiatorId;
-  final String targetId;
-  final String court;
-  final DateTime scheduledTime;
-  final MatchRequestStatus status;
-  final String? matchId; // set once accepted
-  final String chatId;
-  final DateTime createdAt;
-
-  MatchRequestDoc({
-    required this.id,
-    required this.mode,
-    required this.initiatorId,
-    required this.targetId,
-    required this.court,
-    required this.scheduledTime,
-    required this.status,
-    this.matchId,
-    required this.chatId,
-    required this.createdAt,
-  });
-
-  factory MatchRequestDoc.fromJson(Map<String, dynamic> json) {
-    return MatchRequestDoc(
-      id: json['id'] as String,
-      mode: json['mode'] as String,
-      initiatorId: json['initiatorId'] as String,
-      targetId: json['targetId'] as String,
-      court: json['court'] as String,
-      scheduledTime: json['scheduledTime'] as DateTime,
-      status: matchRequestStatusFromString(json['status'] as String),
-      matchId: json['matchId'] as String?,
-      chatId: json['chatId'] as String,
-      createdAt: json['createdAt'] as DateTime,
-    );
-  }
-
-  bool isInitiator(String uid) => uid == initiatorId;
-
-  /// The other participant's uid, relative to [uid].
-  String otherParticipant(String uid) => isInitiator(uid) ? targetId : initiatorId;
-}
-
-class ChatMessage {
-  final String id;
-  final String? senderId; // null for system messages
-  final String text;
-  final bool isSystem;
-  final String? matchRequestId;
-  final DateTime createdAt;
-
-  ChatMessage({
-    required this.id,
-    this.senderId,
-    required this.text,
-    required this.isSystem,
-    this.matchRequestId,
-    required this.createdAt,
-  });
-
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    return ChatMessage(
-      id: json['id'] as String,
-      senderId: json['senderId'] as String?,
-      text: json['text'] as String,
-      isSystem: json['isSystem'] as bool? ?? false,
-      matchRequestId: json['matchRequestId'] as String?,
-      createdAt: json['createdAt'] as DateTime,
-    );
   }
 }

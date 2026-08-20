@@ -17,6 +17,6 @@ abstract class PlayerProfileRepository {
   });
 
   Future<void> touchLastActive(String uid);
-
+  Future<int> myGlobalRank(int myElo);
   Future<void> updateLocation(String uid, GeoPoint location);
 }

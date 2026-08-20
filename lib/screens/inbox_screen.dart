@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
+import 'package:hooper/models/match_request_doc.dart';
+import 'package:hooper/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
-import '../models/match.dart';
 import 'chat_screen.dart';
 
 class ChatInboxScreen extends ConsumerWidget {
@@ -14,48 +15,49 @@ class ChatInboxScreen extends ConsumerWidget {
     final uid = ref.watch(currentUserIdProvider);
     final chatsAsync = ref.watch(myChatsProvider);
 
-    return Scaffold(
-      appBar: AppBar(leading: const Text('Chats')),
-      body: chatsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Could not load your chats: $err')),
-        data: (chats) {
-          if (chats.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.chat_bubble_outline, size: 48),
-                    const SizedBox(height: 12),
-                    const Text('No conversations yet'),
-                    const SizedBox(height: 4),
-                    Text('Challenge someone from the feed to start one.', style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return ListView.separated(
-            itemCount: chats.length,
-            separatorBuilder: (_, __) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-              child: Divider(
-                height: 1,
-                thickness: 2,
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                radius: BorderRadius.circular(10),
+    final x = SkeletonWidget(
+      val: chatsAsync,
+      dummyData: List<Chat>.generate(10, (_) => Chat.dummy()),
+      builder: (List<Chat> chats) {
+        if (chats.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.chat_bubble_outline, size: 48),
+                  const SizedBox(height: 12),
+                  const Text('No conversations yet'),
+                  const SizedBox(height: 4),
+                  Text('Challenge someone from the feed to start one.', style: Theme.of(context).textTheme.bodySmall),
+                ],
               ),
             ),
-            itemBuilder: (context, index) {
-              final request = chats[index];
-              return _ConversationTile(uid: uid, chat: request);
-            },
           );
-        },
-      ),
+        }
+
+        return ListView.separated(
+          itemCount: chats.length,
+          separatorBuilder: (_, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+            child: Divider(
+              height: 1,
+              thickness: 2,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              radius: BorderRadius.circular(10),
+            ),
+          ),
+          itemBuilder: (context, index) {
+            final request = chats[index];
+            return _ConversationTile(uid: uid, chat: request);
+          },
+        );
+      },
+    );
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chats')),
+      body: x,
     );
   }
 }
@@ -93,6 +95,18 @@ class _ConversationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (uid == '') {
+      ListTile(
+        leading: CircleAvatar(child: Text('a')),
+        title: Text('Sample username', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+        subtitle: Text("sample last message preview", maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [Text(_relativeTime(DateTime.now()), style: Theme.of(context).textTheme.bodySmall)],
+        ),
+      );
+    }
     final otherId = chat.otherParticipant(uid);
     final nameAsync = ref.watch(playerDisplayNameProvider(otherId));
     final lastActivity = chat.lastMessageAt ?? chat.createdAt;
@@ -127,7 +141,7 @@ class _ConversationTile extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(_relativeTime(lastActivity), style: Theme.of(context).textTheme.bodySmall),
-          if (statusChip != null) statusChip,
+          ?statusChip,
         ],
       ),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: chat.id))),

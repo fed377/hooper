@@ -26,6 +26,8 @@ class Chat {
     );
   }
 
+  factory Chat.dummy() => Chat(id: '', participantIds: ['uno', 'dos'], createdAt: DateTime.now());
+
   static String pairChatId(String uidA, String uidB) {
     final sorted = [uidA, uidB]..sort();
     return sorted.join('_');

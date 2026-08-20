@@ -1,4 +1,4 @@
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 /**
@@ -42,7 +42,7 @@ export const startMatch = onCall(async (request) => {
       );
     }
 
-    if (match.status !== "scheduled") return;
+    if (match.status !== "scheduled" && match.status !== "in_progress") return;
 
     const scheduledTime = match.scheduledTime as Timestamp;
     if (scheduledTime.toMillis() > Date.now()) {
@@ -52,7 +52,10 @@ export const startMatch = onCall(async (request) => {
       );
     }
 
-    tx.update(matchRef, { status: "in_progress" });
+    tx.update(matchRef, {
+      status: "in_progress",
+      appearedIds: FieldValue.arrayUnion(uid),
+    });
   });
 
   return { ok: true };

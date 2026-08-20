@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooper/models/matchup.dart';
+import 'package:hooper/widgets/elo_rank_chip.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
 class MatchupCard extends StatefulWidget {
@@ -77,23 +78,9 @@ class _MatchupCardState extends State<MatchupCard> {
                                 style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const Spacer(),
-                              ...List.generate(
-                                match.recentForm.length,
-                                (index) => Container(
-                                  margin: EdgeInsets.all(1),
-                                  height: 15,
-                                  width: 10,
-                                  decoration: BoxDecoration(
-                                    color: !match.recentForm[index] ? Colors.red : Colors.green,
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(index == 0 ? 8 : 2),
-                                      bottomLeft: Radius.circular(index == 0 ? 8 : 2),
-                                      topRight: Radius.circular(index == match.recentForm.length - 1 ? 8 : 2),
-                                      bottomRight: Radius.circular(index == match.recentForm.length - 1 ? 8 : 2),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              EloRankChip(elo: match.elo),
+                              const SizedBox(width: 6),
+                              ..._buildRecentForm(match),
                               const SizedBox(width: 6),
                             ],
                           ),
@@ -158,6 +145,26 @@ class _MatchupCardState extends State<MatchupCard> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildRecentForm(Matchup match) {
+    return List.generate(
+      match.recentForm.length,
+      (index) => Container(
+        margin: EdgeInsets.all(1),
+        height: 15,
+        width: 10,
+        decoration: BoxDecoration(
+          color: !match.recentForm[index] ? Colors.red : Colors.green,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(index == 0 ? 8 : 2),
+            bottomLeft: Radius.circular(index == 0 ? 8 : 2),
+            topRight: Radius.circular(index == match.recentForm.length - 1 ? 8 : 2),
+            bottomRight: Radius.circular(index == match.recentForm.length - 1 ? 8 : 2),
           ),
         ),
       ),

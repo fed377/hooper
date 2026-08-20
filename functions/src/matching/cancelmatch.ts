@@ -26,10 +26,10 @@ export const cancelMatch = onCall(async (request) => {
       throw new HttpsError("permission-denied", "You're not part of this match.");
     }
     
-    if (match.status !== "scheduled") {
+    if (match.status !== "scheduled" && match.status !== "in_progress") {
       throw new HttpsError(
         "failed-precondition",
-        "This match can no longer be freely cancelled — a score may already be in progress."
+        "This match can no longer be freely cancelled."
       );
     }
 

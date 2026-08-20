@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/data/fcmservice.dart';
+import 'package:hooper/widgets/loading_screen_widget.dart';
 import 'package:hooper/data/gates/lock_gate.dart';
 import 'package:hooper/data/heartbeat.dart';
 import 'package:hooper/screens/profile_fill_screen.dart';
@@ -16,7 +17,7 @@ class AuthGate extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
 
     return authState.when(
-      loading: () => const _Splash(),
+      loading: () => const FullScreenLoader(),
       error: (err, _) => Scaffold(body: Center(child: Text('Something went wrong signing in: $err'))),
       data: (user) {
         if (user == null) {
@@ -25,15 +26,15 @@ class AuthGate extends ConsumerWidget {
 
         final profileExists = ref.watch(profileExistsProvider(user.uid));
         return profileExists.when(
-          loading: () => const _Splash(message: 'Setting up your profile…'),
+          loading: () => const FullScreenLoader(message: 'Setting up your profile…'),
           error: (err, _) => Scaffold(body: Center(child: Text('Could not load your profile: $err'))),
           data: (exists) {
             if (!exists) {
-              return const _Splash(message: 'Setting up your profile…');
+              return const FullScreenLoader(message: 'Setting up your profile…');
             }
             final dob = ref.watch(myDateOfBirthProvider(user.uid));
             return dob.when(
-              loading: () => const _Splash(),
+              loading: () => const FullScreenLoader(),
               error: (err, _) => Scaffold(body: Center(child: Text('Could not load your account: $err'))),
               data: (birthDate) {
                 if (birthDate == null) {
@@ -46,26 +47,6 @@ class AuthGate extends ConsumerWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _Splash extends StatelessWidget {
-  final String? message;
-  const _Splash({this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            if (message != null) ...[const SizedBox(height: 16), Text(message!)],
-          ],
-        ),
-      ),
     );
   }
 }

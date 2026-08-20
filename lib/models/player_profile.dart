@@ -37,7 +37,7 @@ class PlayerProfile {
   final int gamesPlayed1v1;
   final List<bool> recentForm;
   final List<String> lockedMatchIds;
-  final List<String>? completedMatches;
+  final List<String>? completedMatchIds;
   int visibilityRadius;
   final GeoPoint? homeLocation;
   final DateTime? lastActiveAt;
@@ -55,7 +55,7 @@ class PlayerProfile {
     required this.gamesPlayed1v1,
     this.recentForm = const [],
     required this.lockedMatchIds,
-    required this.completedMatches,
+    required this.completedMatchIds,
     required this.visibilityRadius,
     this.homeLocation,
     this.lastActiveAt,
@@ -73,7 +73,7 @@ class PlayerProfile {
       gamesPlayed1v1: json['gamesPlayed1v1'] as int,
       recentForm: (json['recentForm'] as List).cast<bool>(),
       lockedMatchIds: (json['lockedMatchIds'] as List?)?.cast<String>() ?? const [],
-      completedMatches: (json['completedMatches'] as List?)?.cast<String>() ?? const [],
+      completedMatchIds: (json['completedMatches'] as List?)?.cast<String>() ?? const [],
       visibilityRadius: json['visibilityRadius'] as int,
       homeLocation: json['homeLocation'] as GeoPoint?,
       lastActiveAt: (json['lastActive'] as Timestamp?)?.toDate(),

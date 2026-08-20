@@ -5,7 +5,7 @@ import 'package:hooper/screens/chat_screen.dart';
 
 import '../data/providers.dart';
 import '../data/repos/match_repo.dart';
-import '../models/match.dart';
+import '../models/match_doc.dart';
 
 class MatchViewScreen extends ConsumerWidget {
   final String matchId;

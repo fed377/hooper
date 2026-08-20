@@ -1,4 +1,4 @@
-package com.example.hooper
+package com.fedvv.hooper
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -3,7 +3,7 @@ import 'dart:developer' show log;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/data/providers.dart';
-import 'package:hooper/models/match.dart';
+import 'package:hooper/models/match_doc.dart';
 import 'package:hooper/screens/current_playing_screen.dart';
 import 'package:hooper/screens/home_screen.dart';
 

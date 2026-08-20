@@ -2,7 +2,7 @@ import 'dart:developer' show log;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hooper/models/match.dart';
+import 'package:hooper/models/match_doc.dart';
 import 'package:hooper/screens/chat_screen.dart';
 
 import '../../data/providers.dart';
@@ -13,7 +13,7 @@ class ProposeMatchScreen extends ConsumerStatefulWidget {
   final String targetId;
   const ProposeMatchScreen({super.key, required this.targetId});
 
-  static pushProposal(final String targetId, BuildContext context) {
+  static void pushProposal(final String targetId, BuildContext context) {
     showModalBottomSheet(
       showDragHandle: true,
       context: context,
@@ -108,7 +108,9 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
         const SizedBox(height: 24),
         lockedMatchesAsync.when(
           data: (data) {
+            log(data?.length.toString() ?? "null");
             bool pass = checkPass(data);
+            log(pass.toString());
             return FilledButton(
               onPressed: (_courtController.text.trim().isNotEmpty && !_sending && pass) ? _send : null,
               child: _sending
@@ -127,12 +129,14 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
     );
   }
 
-  bool? _checkConflict(List<MatchDoc>? data, DateTime rs, DateTime re) {
+  bool? _checkConflict(List<MatchDoc>? data, DateTime requestStart, DateTime requestEnd) {
     return data?.every((doc) {
-      final st = doc.scheduledTime;
-      final et = st.add(Duration(hours: 1));
-      final ol = (st.isBefore(rs) && et.isAfter(rs)) || (st.isBefore(re) && et.isAfter(re));
-      return !ol;
+      final startTime = doc.scheduledTime;
+      final endTime = startTime.add(Duration(hours: 1));
+      final canPass =
+          (startTime.isBefore(requestStart) && endTime.isBefore(requestStart)) ||
+          (endTime.isAfter(requestEnd) && startTime.isAfter(requestEnd));
+      return canPass;
     });
   }
 

@@ -1,6 +1,8 @@
 import 'package:hooper/models/chat.dart';
+import 'package:hooper/models/chat_message.dart';
+import 'package:hooper/models/match_request_doc.dart';
 
-import '../../models/match.dart';
+import '../../models/match_doc.dart';
 
 abstract class MatchRepository {
   Stream<MatchDoc> watchMatch(String matchId);

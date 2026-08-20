@@ -22,6 +22,16 @@ class FirestorePlayerProfileRepository implements PlayerProfileRepository {
   }
 
   @override
+  Future<int> myGlobalRank(int myElo) async {
+    final higher = await FirebaseFirestore.instance
+        .collection('playerProfiles')
+        .where('elo', isGreaterThan: myElo)
+        .count()
+        .get();
+    return (higher.count ?? 0) + 1;
+  }
+
+  @override
   Future<void> updateEditableFields({
     required String uid,
     required String oldName,

@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:hooper/models/chat.dart';
+import 'package:hooper/models/chat_message.dart';
+import 'package:hooper/models/match_request_doc.dart';
 
-import '../../models/match.dart';
+import '../../models/match_doc.dart';
 import 'match_repo.dart';
 
 class FirestoreMatchRepository implements MatchRepository {
@@ -183,7 +185,7 @@ class FirestoreMatchRepository implements MatchRepository {
     try {
       await _functions.httpsCallable('updateMatchRequest').call({
         'matchRequestId': matchRequestId,
-        if (courtText != null) 'courtText': courtText,
+        'courtText': ?courtText,
         if (scheduledTime != null) 'scheduledTime': scheduledTime.toIso8601String(),
       });
     } on FirebaseFunctionsException catch (e) {

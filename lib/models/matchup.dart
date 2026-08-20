@@ -76,6 +76,23 @@ class Matchup {
     );
   }
 
+  factory Matchup.dummy() {
+    return Matchup(
+      id: '',
+      displayName: 'dummy dummson',
+      elo: 1200,
+      distanceKm: 10.5,
+      recentForm: [true, false, false, false, true],
+      gamesPlayed1v1: 74,
+      photoUrl: null,
+      bannerUrl: '',
+      visibilityRadius: 10,
+      bio: '',
+      height: 184,
+      position: 3,
+    );
+  }
+
   //not used for anything
   Map<String, dynamic> toJson() => {};
 }
