@@ -1,0 +1,194 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // users/{userId}
+    // Auth-adjacent account info. displayName lives on playerProfiles,
+    // not here (see the consolidation from earlier) — this collection
+    // is now just identity + status + dateOfBirth.
+    // ─────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Only onUserCreate (Admin SDK) ever creates this doc — a client
+      // create here would bypass the trigger entirely.
+      allow create: if false;
+
+      // Owner-only read: phoneOrEmail and status aren't meant for
+      // other players to see.
+      allow read: if request.auth.uid == userId;
+
+      // The ONE thing a client is allowed to set here: dateOfBirth,
+      // exactly once, and only if it clears the age gate. Write-once
+      // is enforced by requiring the field to be absent beforehand —
+      // this is what actually makes the age gate non-bypassable,
+      // since the client-side check in DateOfBirthScreen is only a
+      // friendly UX shortcut on its own.
+      allow update: if request.auth.uid == userId
+        && !("dateOfBirth" in resource.data)
+        && request.resource.data.dateOfBirth is timestamp
+        && request.resource.data.dateOfBirth <= timestamp.date(
+             request.time.year() - 18, request.time.month(), request.time.day())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dateOfBirth"]);
+
+      allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // playerProfiles/{userId}
+    // The big one — self-editable fields vs. Cloud-Function-only
+    // fields is the core trust boundary of the whole app.
+    // ─────────────────────────────────────────────────────────────
+    match /playerProfiles/{userId} {
+      // Created only by onUserCreate.
+      allow create: if false;
+
+      // Readable by any signed-in user — required for the discovery
+      // feed, opponent lookups (playerDisplayNameProvider), and the
+      // nearbyMatchups geohash query, which all read OTHER players'
+      // docs directly from the client.
+      //
+      // KNOWN TRADEOFF: this means homeLocation (an exact GeoPoint,
+      // not the coarsened ~600m geohash cell the original spec called
+      // for) is readable by any authenticated user, not just used for
+      // distance math. The client-side geohash query architecture
+      // (see nearbyMatchups) requires reading raw docs directly, so
+      // there's no way to hide the exact coordinate from the querying
+      // client without moving discovery behind a Cloud Function
+      // instead — a real architecture change, not a rules tweak. If
+      // exact-location privacy matters more than it currently does,
+      // that's the fix: a callable that does the geo query server-side
+      // and returns only a rounded distanceKm, never the raw GeoPoint.
+      allow read: if request.auth != null;
+
+      // Self-editable fields only. Everything touching trust/integrity
+      // — elo, gamesPlayed1v1, recentForm, lockedMatchIds — is absent
+      // from this allowlist on purpose; those are Cloud-Function-only
+      // (reconcileScore, acceptRequest) and bypass rules via the
+      // Admin SDK.
+      allow update: if request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             "displayName", "bio", "photoUrl", "bannerUrl",  "height", "position",
+             "visibilityRadius", "lastActive", "homeLocation", "geohash",
+             "fcmTokens"
+           ]);
+
+      allow delete: if false;
+
+      // eloHistory/{entryId} — append-only, owner-only read. Written
+      // only by reconcileScore.
+      match /eloHistory/{entryId} {
+        allow read: if request.auth != null && resource.data.playerId == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // matchRequests/{requestId}
+    // The whole lifecycle (create/accept/decline/cancel/update) goes
+    // through Cloud Functions — every write here needs the kind of
+    // cross-document validation (chat dedup checks, status guards,
+    // consent checks) that only makes sense in a transaction, not a
+    // rules expression.
+    // ─────────────────────────────────────────────────────────────
+    match /matchRequests/{requestId} {
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.initiatorId
+            || request.auth.uid == resource.data.targetId);
+      allow write: if false; // proposeMatch/acceptRequest/declineRequest/
+                              // cancelRequest/updateMatchRequest only
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // matches/{matchId}
+    // Same reasoning as matchRequests — status transitions
+    // (scheduled → in_progress → awaiting_confirmation → confirmed/
+    // disputed/cancelled) all carry ELO/lock side effects that only
+    // Cloud Functions are trusted to perform.
+    // ─────────────────────────────────────────────────────────────
+    match /matches/{matchId} {
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.sideAId
+            || request.auth.uid == resource.data.sideBId);
+      allow write: if false; // acceptRequest/submitScore/reconcileScore/
+                              // cancelMatch/startMatch only
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // chats/{chatId}
+    // Mixed: the chat doc's participant-facing fields (lastMessageAt/
+    // lastMessagePreview) are legitimately client-writable via
+    // sendMessage, but lastMatchRequestId is not — that's set only by
+    // proposeMatch.
+    // ─────────────────────────────────────────────────────────────
+    match /chats/{chatId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      // Reachable now that MatchupCard's chat button (and the first
+      // message sent through it) can create a chat doc that never
+      // went through proposeMatch. participantIds must match exactly
+      // what the chatId itself encodes (pairChatId's sorted-pair
+      // convention) — a client can't create a chat claiming
+      // participants other than the two uids baked into the id.
+      allow create: if request.auth != null
+        && request.auth.uid in request.resource.data.participantIds
+        && request.resource.data.participantIds == chatId.split('_')
+        && request.resource.data.lastMatchRequestId == null;
+
+      // Participants can bump the preview fields (what sendMessage
+      // does) but not lastMatchRequestId — that field's integrity
+      // matters (it's what the negotiation screen trusts to know
+      // which request is "current"), so it stays Cloud-Function-only
+      // even though this doc otherwise allows client writes.
+      allow update: if request.auth != null
+        && request.auth.uid in resource.data.participantIds
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["lastMessageAt", "lastMessagePreview"]);
+
+      allow delete: if false;
+
+      // messages/{messageId}
+      // NOTE: this deliberately does NOT check the chat's current
+      // matchRequestStatus (e.g. blocking sends after a decline) —
+      // MatchNegotiationScreen's read-only state for declined/
+      // withdrawn/expired requests is a client-side UX choice, not a
+      // security boundary. Sending a stray message on a "dead"
+      // request isn't a trust/integrity issue, just noise, so it's
+      // not worth the extra get() read on every message send to
+      // enforce it here too.
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+
+        // Clients only ever send isSystem: false, as themselves.
+        // System messages (proposeMatch, acceptRequest, etc.) come
+        // from Cloud Functions via the Admin SDK, which bypasses
+        // rules entirely — this branch is never how those get written.
+        allow create: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds
+          && request.resource.data.isSystem == false
+          && request.resource.data.senderId == request.auth.uid;
+
+        allow update, delete: if false; // messages are immutable once sent
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // reports/{reportId}
+    // Trust & safety reporting, from the original spec. Reporter can
+    // file and read their own reports; the reported player never sees
+    // that they were reported.
+    // ─────────────────────────────────────────────────────────────
+    match /reports/{reportId} {
+      allow create: if request.auth != null && request.resource.data.senderId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.senderId == request.auth.uid;
+      allow update, delete: if false; // resolution is an admin/backend action
+    }
+
+    match /preferences/{userId} {
+      allow create: if false;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

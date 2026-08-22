@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' show log;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -15,6 +16,11 @@ class ProposalResponse {
   factory ProposalResponse.fromJson(Map<String, dynamic> data) {
     return ProposalResponse(chatId: data['chatId'] as String, requestId: data['matchRequestId'] as String);
   }
+}
+
+class MatchupScanError {
+  String what;
+  MatchupScanError(this.what);
 }
 
 class FirestoreMatchupRepository implements MatchupRepository {
@@ -42,6 +48,21 @@ class FirestoreMatchupRepository implements MatchupRepository {
     final perCellDocs = <int, Map<String, Map<String, dynamic>>>{};
     final haveFirstEmission = List<bool>.filled(cells.length, false);
     final subs = <StreamSubscription>[];
+    Set<String> restrictedUserIds = {};
+
+    Future<void> fetchBlockLists() async {
+      try {
+        final myBlocks = await _firestore.collection("playerProfiles").doc(excludeUserId).get();
+        final blockedByMe = (myBlocks['blockedUsers'] as List? ?? []).cast<String>();
+
+        final blockedByThem = await _firestore.collection("playerProfiles").doc(excludeUserId).get();
+        final blockedMe = (blockedByThem['blockedBy'] as List? ?? []).cast<String>();
+
+        restrictedUserIds = {...blockedByMe, ...blockedMe};
+      } catch (e) {
+        throw MatchupScanError(e.toString());
+      }
+    }
 
     void emit() {
       if (!haveFirstEmission.every((done) => done)) return;
@@ -54,8 +75,12 @@ class FirestoreMatchupRepository implements MatchupRepository {
       final results = <Matchup>[];
       for (final entry in merged.entries) {
         if (entry.key == excludeUserId) continue;
+        if (restrictedUserIds.contains(entry.key)) continue;
+
         final data = entry.value;
         final homeLocation = data['homeLocation'] as GeoPoint?;
+        final status = data['status'] as String? ?? "normal";
+        if (status == 'banned') continue;
         if (homeLocation == null) continue;
 
         final distanceKm =
@@ -76,22 +101,29 @@ class FirestoreMatchupRepository implements MatchupRepository {
       controller.add(results);
     }
 
-    for (var i = 0; i < cells.length; i++) {
-      final cellIndex = i;
-      final cell = cells[i];
-      final sub = _firestore
-          .collection('playerProfiles')
-          .orderBy('geohash')
-          .startAt([cell])
-          .endAt(['$cell~'])
-          .snapshots()
-          .listen((snap) {
-            perCellDocs[cellIndex] = {for (final d in snap.docs) d.id: d.data()};
-            haveFirstEmission[cellIndex] = true;
-            emit();
-          }, onError: controller.addError);
-      subs.add(sub);
-    }
+    fetchBlockLists().then((_) {
+      log("Restricting");
+      for (final x in restrictedUserIds) {
+        log(x);
+      }
+      for (var i = 0; i < cells.length; i++) {
+        final cellIndex = i;
+        final cell = cells[i];
+        final sub = _firestore
+            .collection('playerProfiles')
+            .orderBy('geohash')
+            .startAt([cell])
+            .endAt(['$cell~'])
+            .where(FieldPath.documentId)
+            .snapshots()
+            .listen((snap) {
+              perCellDocs[cellIndex] = {for (final d in snap.docs) d.id: d.data()};
+              haveFirstEmission[cellIndex] = true;
+              emit();
+            }, onError: controller.addError);
+        subs.add(sub);
+      }
+    });
 
     controller.onCancel = () {
       for (final sub in subs) {

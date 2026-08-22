@@ -19,6 +19,8 @@
       }
     }
   },
+  "firestore": { "rules": "rules/firestore.rules" },
+  "storage": { "rules": "rules/storage.rules" },
   "functions": [
     {
       "source": "functions",
@@ -37,3 +39,4 @@
     }
   ]
 }
+

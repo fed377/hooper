@@ -18,6 +18,11 @@ export const onUserCreate = functionsV1
       status: "active",
     });
 
+    batch.set(db.collection("preferences").doc(user.uid), {
+      blockedUsers: [],
+      blockedBy: [],
+    });
+
     batch.set(db.collection("playerProfiles").doc(user.uid), {
       displayName: "New Player",
       photoUrl: user.photoURL,
@@ -33,6 +38,9 @@ export const onUserCreate = functionsV1
       bio: "",
       height: 0,
       position: 1,
+      status: "normal",
+      blockedBy: [],
+      blockedUsers: [],
     });
 
     await batch.commit();

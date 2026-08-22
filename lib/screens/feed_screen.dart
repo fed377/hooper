@@ -83,6 +83,7 @@ class MatchupFeedScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
+                myId: ref.read(currentUserIdProvider),
                 onChat: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => ChatScreen(

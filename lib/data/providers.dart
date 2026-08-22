@@ -8,6 +8,7 @@ import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/chat_message.dart';
 import 'package:hooper/models/match_request_doc.dart';
 import 'package:hooper/models/player_profile.dart';
+import 'package:hooper/models/user_preferences.dart';
 
 import '../models/match_doc.dart';
 import '../models/matchup.dart';
@@ -62,6 +63,14 @@ final playerProfileRepositoryProvider = Provider<PlayerProfileRepository>((ref) 
 
 final userPreferencesProvider = Provider<FirestorePreferencesRepository>((ref) {
   return FirestorePreferencesRepository();
+});
+
+// --- Preferences --------------------------------------------------------
+
+final myPreferencesProvider = StreamProvider<UserPreference>((ref) {
+  final repo = ref.watch(userPreferencesProvider);
+  final uid = ref.watch(currentUserIdProvider);
+  return repo.watchMyPreferences(uid);
 });
 
 // --- My Profile Viewing & Editing ---------------------------------------

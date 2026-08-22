@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/data/providers.dart';
 import 'package:hooper/models/matchup.dart';
 import 'package:hooper/widgets/elo_rank_chip.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
-class MatchupCard extends StatefulWidget {
+class MatchupCard extends ConsumerStatefulWidget {
   const MatchupCard({
     super.key,
     required this.matchup,
     required this.onChallenge,
     required this.onAccept,
     required this.onChat,
+    required this.myId,
     this.hasChallengedYou = false,
   });
   final Matchup matchup;
@@ -17,17 +20,19 @@ class MatchupCard extends StatefulWidget {
   final void Function() onChallenge;
   final void Function()? onAccept;
   final void Function() onChat;
+  final String myId;
 
   @override
-  State<MatchupCard> createState() => _MatchupCardState();
+  ConsumerState<MatchupCard> createState() => _MatchupCardState();
 }
 
-class _MatchupCardState extends State<MatchupCard> {
+class _MatchupCardState extends ConsumerState<MatchupCard> {
   @override
   Widget build(BuildContext context) {
     const double spacing = 14;
     Matchup match = widget.matchup;
     match.tier;
+    final repo = ref.watch(userPreferencesProvider);
 
     return Padding(
       padding: const EdgeInsets.only(top: 46, left: 12, right: 12, bottom: 12),
@@ -101,15 +106,73 @@ class _MatchupCardState extends State<MatchupCard> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              IconButton.filledTonal(
-                                style: ElevatedButton.styleFrom(
-                                  shape: CircleBorder(),
-                                  minimumSize: Size(0, 50),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  padding: EdgeInsets.all(12),
+                              MenuAnchor(
+                                menuChildren: [
+                                  MenuItemButton(
+                                    onPressed: () async {
+                                      final b = await repo.confirmBlockUser(
+                                        context,
+                                        widget.myId,
+                                        match.id,
+                                        match.displayName,
+                                      );
+                                      if (b) {
+                                        ref.invalidate(nearbyMatchupsProvider);
+                                      }
+                                    },
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.block_rounded, color: Colors.red),
+                                        const SizedBox(width: 8),
+                                        const Text('Block User'),
+                                      ],
+                                    ),
+                                  ),
+                                  MenuItemButton(
+                                    onPressed: () async {
+                                      final b = await repo.confirmReportUser(
+                                        context,
+                                        widget.myId,
+                                        match.id,
+                                        null,
+                                        match.displayName,
+                                      );
+                                      if (b) {
+                                        ref.invalidate(nearbyMatchupsProvider);
+                                      }
+                                    },
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.block_rounded, color: Colors.red),
+                                        const SizedBox(width: 8),
+                                        const Text('Report User'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                style: MenuStyle(
+                                  alignment: Alignment.bottomCenter,
+                                  elevation: WidgetStatePropertyAll(0),
+                                  shape: WidgetStatePropertyAll(
+                                    RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+                                  ),
                                 ),
-                                icon: Icon(Icons.more_horiz_rounded, size: 24),
-                                onPressed: () {},
+                                builder: (context, controller, child) {
+                                  return IconButton.filledTonal(
+                                    style: ElevatedButton.styleFrom(
+                                      shape: CircleBorder(),
+                                      minimumSize: Size(0, 50),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      padding: EdgeInsets.all(12),
+                                    ),
+                                    icon: Icon(Icons.more_horiz_rounded, size: 24),
+                                    onPressed: () {
+                                      controller.isOpen
+                                          ? controller.close()
+                                          : controller.open(position: Offset(-10, -70));
+                                    },
+                                  );
+                                },
                               ),
                               const SizedBox(width: spacing),
                               IconButton.filledTonal(
