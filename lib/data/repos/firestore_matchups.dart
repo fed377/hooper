@@ -52,14 +52,15 @@ class FirestoreMatchupRepository implements MatchupRepository {
 
     Future<void> fetchBlockLists() async {
       try {
-        final myBlocks = await _firestore.collection("playerProfiles").doc(excludeUserId).get();
+        final myBlocks = await _firestore.collection("preferences").doc(excludeUserId).get();
         final blockedByMe = (myBlocks['blockedUsers'] as List? ?? []).cast<String>();
 
-        final blockedByThem = await _firestore.collection("playerProfiles").doc(excludeUserId).get();
+        final blockedByThem = await _firestore.collection("preferences").doc(excludeUserId).get();
         final blockedMe = (blockedByThem['blockedBy'] as List? ?? []).cast<String>();
 
         restrictedUserIds = {...blockedByMe, ...blockedMe};
       } catch (e) {
+        log(e.toString());
         throw MatchupScanError(e.toString());
       }
     }
@@ -79,7 +80,7 @@ class FirestoreMatchupRepository implements MatchupRepository {
 
         final data = entry.value;
         final homeLocation = data['homeLocation'] as GeoPoint?;
-        final status = data['status'] as String? ?? "normal";
+        final status = data['status'] as String? ?? "active";
         if (status == 'banned') continue;
         if (homeLocation == null) continue;
 

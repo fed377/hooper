@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/screens/chat_screen.dart';
+import 'package:hooper/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
 import '../data/repos/match_repo.dart';
 import '../models/match_doc.dart';
 
+//View a match that is not currently ongoing
 class MatchViewScreen extends ConsumerWidget {
   final String matchId;
   const MatchViewScreen({super.key, required this.matchId});
@@ -18,12 +20,10 @@ class MatchViewScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Match')),
-      body: matchAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Padding(padding: const EdgeInsets.all(24), child: Text('Could not load this match: $err')),
-        ),
-        data: (match) => _MatchBody(match: match, uid: uid),
+      body: SkeletonWidget<MatchDoc>(
+        val: matchAsync,
+        builder: (match) => _MatchBody(match: match, uid: uid),
+        dummyData: MatchDoc.dummy(),
       ),
     );
   }
@@ -63,7 +63,7 @@ class _MatchBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final otherId = match.otherParticipant(uid);
-    final nameAsync = ref.watch(playerDisplayNameProvider(otherId));
+    final nameAsync = (match.id == '') ? null : ref.watch(playerDisplayNameProvider(otherId));
     final canCancel = match.status == MatchStatus.scheduled || match.status == MatchStatus.inProgress;
 
     return ListView(
@@ -72,9 +72,9 @@ class _MatchBody extends ConsumerWidget {
         Center(
           child: Column(
             children: [
-              CircleAvatar(radius: 32, child: Text(nameAsync.value?.substring(0, 1) ?? '?')),
+              CircleAvatar(radius: 32, child: Text(nameAsync?.value?.substring(0, 1) ?? '?')),
               const SizedBox(height: 10),
-              Text(nameAsync.value ?? 'Loading…', style: Theme.of(context).textTheme.headlineSmall),
+              Text(nameAsync?.value ?? 'Loading…', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 6),
               _StatusChip(status: match.status),
             ],

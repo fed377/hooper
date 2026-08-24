@@ -46,11 +46,11 @@ class MatchDoc {
     required this.scheduledTime,
     required this.confirmedAt,
     required this.status,
-    this.scoreA,
-    this.scoreB,
-    this.eloDeltaA,
-    this.eloDeltaB,
-    this.scoreSubmissions,
+    required this.scoreA,
+    required this.scoreB,
+    required this.eloDeltaA,
+    required this.eloDeltaB,
+    required this.scoreSubmissions,
     required this.appearedIds,
   });
 
@@ -85,6 +85,11 @@ class MatchDoc {
       confirmedAt: DateTime.now(),
       status: MatchStatus.cancelled,
       appearedIds: [''],
+      scoreA: 5,
+      scoreB: 11,
+      eloDeltaA: 12,
+      eloDeltaB: -12,
+      scoreSubmissions: {},
     );
   }
 

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooper/models/player_profile.dart';
+import 'package:hooper/widgets/skeleton_widget.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/providers.dart';
@@ -99,7 +100,10 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
     uniqueAsync.when(
       data: (exists) {
         if (!exists) {
-          setState(() => submitState = SubmitState.yes);
+          setState(() {
+            _error = "Username already taken. ";
+            submitState = SubmitState.yes;
+          });
           _pushSubmit(height, date, bioController.text.trim(), inputName);
         } else {
           setState(() {
@@ -116,7 +120,6 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
       },
       loading: () {
         setState(() {
-          _error = "Something went wrong. ";
           submitState = SubmitState.verifying;
         });
       },
@@ -252,19 +255,15 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
               },
             ),
             inputName.length >= 5
-                ? uniqueAsync.when(
-                    loading: () {
-                      return const CircularProgressIndicator();
-                    },
-                    data: (bool exists) {
+                ? SkeletonWidget<bool>(
+                    val: uniqueAsync,
+                    dummyData: true,
+                    builder: (bool exists) {
                       if (!exists) {
                         return Text("$inputName is available. ");
                       } else {
                         return Text("$inputName is already taken. ");
                       }
-                    },
-                    error: (Object error, StackTrace stackTrace) {
-                      return Text("Something went wrong. ");
                     },
                   )
                 : const SizedBox(),

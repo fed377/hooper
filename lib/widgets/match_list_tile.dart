@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/match_doc.dart';
@@ -31,7 +32,7 @@ class MatchListTile extends ConsumerWidget {
       title: Text(matchup.displayName),
       subtitle: Text(Utils.formatDate(match.scheduledTime)),
       leading: CircleAvatar(
-        backgroundImage: matchup.photoUrl != null ? NetworkImage(matchup.photoUrl!) : null,
+        backgroundImage: matchup.photoUrl != null ? CachedNetworkImageProvider(matchup.photoUrl!) : null,
         child: matchup.photoUrl == null ? Text(matchup.displayName[0]) : null,
       ),
     );

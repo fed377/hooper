@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
@@ -15,49 +16,48 @@ class ChatInboxScreen extends ConsumerWidget {
     final uid = ref.watch(currentUserIdProvider);
     final chatsAsync = ref.watch(myChatsProvider);
 
-    final x = SkeletonWidget(
-      val: chatsAsync,
-      dummyData: List<Chat>.generate(10, (_) => Chat.dummy()),
-      builder: (List<Chat> chats) {
-        if (chats.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.chat_bubble_outline, size: 48),
-                  const SizedBox(height: 12),
-                  const Text('No conversations yet'),
-                  const SizedBox(height: 4),
-                  Text('Challenge someone from the feed to start one.', style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return ListView.separated(
-          itemCount: chats.length,
-          separatorBuilder: (_, _) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-            child: Divider(
-              height: 1,
-              thickness: 2,
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              radius: BorderRadius.circular(10),
-            ),
-          ),
-          itemBuilder: (context, index) {
-            final request = chats[index];
-            return _ConversationTile(uid: uid, chat: request);
-          },
-        );
-      },
-    );
     return Scaffold(
       appBar: AppBar(title: const Text('Chats')),
-      body: x,
+      body: SkeletonWidget(
+        val: chatsAsync,
+        dummyData: List<Chat>.generate(10, (_) => Chat.dummy()),
+        builder: (List<Chat> chats) {
+          if (chats.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.chat_bubble_outline, size: 48),
+                    const SizedBox(height: 12),
+                    const Text('No conversations yet'),
+                    const SizedBox(height: 4),
+                    Text('Challenge someone from the feed to start one.', style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return ListView.separated(
+            itemCount: chats.length,
+            separatorBuilder: (_, _) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+              child: Divider(
+                height: 1,
+                thickness: 2,
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                radius: BorderRadius.circular(10),
+              ),
+            ),
+            itemBuilder: (context, index) {
+              final Chat chat = chats[index];
+              return _ConversationTile(uid: uid, chat: chat);
+            },
+          );
+        },
+      ),
     );
   }
 }
@@ -76,28 +76,34 @@ class _ConversationTile extends ConsumerWidget {
     return '${time.month}/${time.day}';
   }
 
-  Widget? _statusChip(MatchRequestStatus status) {
+  String? _statusString(MatchRequestStatus status) {
     switch (status) {
       case MatchRequestStatus.accepted:
-        return const Chip(label: Text('Locked in'), visualDensity: VisualDensity.compact);
+        return 'Confirmed';
       case MatchRequestStatus.declined:
-        return const Chip(label: Text('Declined'), visualDensity: VisualDensity.compact);
+        return 'Declined';
       case MatchRequestStatus.withdrawn:
-        return const Chip(label: Text('Cancelled'), visualDensity: VisualDensity.compact);
+        return 'Cancelled';
       case MatchRequestStatus.expired:
-        return const Chip(label: Text('Expired'), visualDensity: VisualDensity.compact);
+        return 'Expired';
       case MatchRequestStatus.finished:
-        return const Chip(label: Text('Finished'), visualDensity: VisualDensity.compact);
+        return 'Finished';
       case MatchRequestStatus.pending:
         return null;
     }
   }
 
+  Widget? _statusChip(MatchRequestStatus status) {
+    String? str = _statusString(status);
+    if (str == null) return null;
+    return Chip(label: Text(str), visualDensity: VisualDensity.compact);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (uid == '') {
-      ListTile(
-        leading: CircleAvatar(child: Text('a')),
+      return ListTile(
+        leading: CircleAvatar(child: Text('')),
         title: Text('Sample username', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
         subtitle: Text("sample last message preview", maxLines: 1, overflow: TextOverflow.ellipsis),
         trailing: Column(
@@ -123,7 +129,7 @@ class _ConversationTile extends ConsumerWidget {
       leading: imageUrl.when(
         data: (val) {
           if (val != '') {
-            return CircleAvatar(backgroundImage: NetworkImage(val));
+            return CircleAvatar(backgroundImage: CachedNetworkImageProvider(val));
           } else {
             return Text(nameAsync.value?.substring(0, 1) ?? '?');
           }

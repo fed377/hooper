@@ -8,6 +8,7 @@ import 'package:hooper/screens/chat_screen.dart';
 import '../../data/providers.dart';
 import '../../data/repos/matchup_repo.dart';
 import '../../models/matchup.dart';
+import '../../widgets/skeleton_widget.dart';
 
 class ProposeMatchScreen extends ConsumerStatefulWidget {
   final String targetId;
@@ -68,16 +69,10 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
   @override
   Widget build(BuildContext context) {
     final matchupAsync = ref.watch(matchupFromIdProvider(widget.targetId));
-    return matchupAsync.when(
-      data: (Matchup data) {
-        return _buildBody(context, data);
-      },
-      error: (Object error, StackTrace stackTrace) {
-        return Center(child: Text(error.toString()));
-      },
-      loading: () {
-        return Center(child: const CircularProgressIndicator());
-      },
+    return SkeletonWidget<Matchup>(
+      val: matchupAsync,
+      dummyData: Matchup.dummy(),
+      builder: (data) => _buildBody(context, data),
     );
   }
 
@@ -106,23 +101,17 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
           child: Text(_selectedTime == null ? 'Pick date & time' : _selectedTime.toString()),
         ),
         const SizedBox(height: 24),
-        lockedMatchesAsync.when(
-          data: (data) {
+        SkeletonWidget<List<MatchDoc>?>(
+          val: lockedMatchesAsync,
+          dummyData: [],
+          builder: (data) {
             log(data?.length.toString() ?? "null");
             bool pass = checkPass(data);
             log(pass.toString());
             return FilledButton(
               onPressed: (_courtController.text.trim().isNotEmpty && !_sending && pass) ? _send : null,
-              child: _sending
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Send challenge'),
+              child: const Text('Send challenge'),
             );
-          },
-          error: (Object error, StackTrace stackTrace) {
-            return Text(error.toString());
-          },
-          loading: () {
-            return const SizedBox(width: 16, height: 16, child: CircularProgressIndicator());
           },
         ),
       ],

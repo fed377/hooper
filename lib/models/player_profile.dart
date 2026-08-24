@@ -79,4 +79,20 @@ class PlayerProfile {
       lastActiveAt: (json['lastActive'] as Timestamp?)?.toDate(),
     );
   }
+
+  factory PlayerProfile.dummy() {
+    return PlayerProfile(
+      userId: '',
+      displayName: '',
+      photoUrl: null,
+      height: 184,
+      position: 3,
+      bio: '',
+      elo: 1200,
+      gamesPlayed1v1: 56,
+      lockedMatchIds: [],
+      completedMatchIds: [],
+      visibilityRadius: 10,
+    );
+  }
 }

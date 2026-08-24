@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer' show log;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +28,24 @@ class FCMService {
       iOS: initializationSettingsDarwin,
     );
 
-    await _localNotificationsPlugin.initialize(settings: initializationSettings);
+    await _localNotificationsPlugin.initialize(
+      settings: initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null) {
+          try {
+            final Map<String, dynamic> data = jsonDecode(response.payload!);
+            _handleNotificationTap(data);
+          } catch (e) {
+            log("Error decoding notification payload: $e");
+          }
+        }
+      },
+    );
+
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTap(initialMessage.data);
+    }
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _localNotificationsPlugin.show(
@@ -36,6 +56,7 @@ class FCMService {
           android: AndroidNotificationDetails('default_channel', 'Notifications'),
           iOS: DarwinNotificationDetails(),
         ),
+        payload: jsonEncode(message.data),
       );
     });
 

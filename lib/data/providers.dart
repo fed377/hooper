@@ -1,7 +1,11 @@
+import 'dart:developer' show log;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/data/repos/firestore_leaderboard_repo.dart';
 import 'package:hooper/data/repos/firestore_profiles_repo.dart';
+import 'package:hooper/data/repos/leaderboard_repo.dart';
 import 'package:hooper/data/repos/preferences_repo.dart';
 import 'package:hooper/data/repos/profiles_repo.dart';
 import 'package:hooper/models/chat.dart';
@@ -49,26 +53,20 @@ final myDateOfBirthProvider = StreamProvider.autoDispose.family<DateTime?, Strin
 
 // --- Repositories -------------------------------------------------------
 
-final matchupRepositoryProvider = Provider<MatchupRepository>((ref) {
-  return FirestoreMatchupRepository();
-});
+final matchupRepositoryProvider = Provider<MatchupRepository>((ref) => FirestoreMatchupRepository());
 
-final matchRepositoryProvider = Provider<MatchRepository>((ref) {
-  return FirestoreMatchRepository();
-});
+final matchRepositoryProvider = Provider<MatchRepository>((ref) => FirestoreMatchRepository());
 
-final playerProfileRepositoryProvider = Provider<PlayerProfileRepository>((ref) {
-  return FirestorePlayerProfileRepository();
-});
+final playerProfileRepositoryProvider = Provider<PlayerProfileRepository>((ref) => FirestorePlayerProfileRepository());
 
-final userPreferencesProvider = Provider<FirestorePreferencesRepository>((ref) {
-  return FirestorePreferencesRepository();
-});
+final preferencesRepoProvider = Provider<FirestorePreferencesRepository>((ref) => FirestorePreferencesRepository());
+
+final leaderboardRepoProvider = Provider<LeaderboardRepository>((ref) => FirestoreLeaderboardRepository());
 
 // --- Preferences --------------------------------------------------------
 
 final myPreferencesProvider = StreamProvider<UserPreference>((ref) {
-  final repo = ref.watch(userPreferencesProvider);
+  final repo = ref.watch(preferencesRepoProvider);
   final uid = ref.watch(currentUserIdProvider);
   return repo.watchMyPreferences(uid);
 });
@@ -81,12 +79,12 @@ final myPlayerProfileProvider = StreamProvider<PlayerProfile>((ref) {
   return repo.watchMyProfile(uid);
 });
 
-final playerDisplayNameProvider = FutureProvider.autoDispose.family<String, String>((ref, uid) async {
+final playerDisplayNameProvider = FutureProvider.family<String, String>((ref, uid) async {
   final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   return doc.data()?['displayName'] as String? ?? 'Player';
 });
 
-final playerPhotoUrlProvider = FutureProvider.autoDispose.family<String, String>((ref, uid) async {
+final playerPhotoUrlProvider = FutureProvider.family<String, String>((ref, uid) async {
   final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   return doc.data()?['photoUrl'] as String? ?? '';
 });
@@ -101,7 +99,7 @@ final playerDiscoverRadiusProvider = FutureProvider.autoDispose.family<int, Stri
   return doc.data()?['visibilityRadius'] as int? ?? 10;
 });
 
-final rankProvider = FutureProvider.autoDispose.family<int?, String>((ref, uid) async {
+final rankProvider = FutureProvider.family<int?, String>((ref, uid) async {
   final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   final elo = doc.data()?['elo'] as int?;
   if (elo == null) return null;
@@ -124,7 +122,12 @@ final nearbyMatchupsProvider = StreamProvider<List<Matchup>>((ref) {
   final repo = ref.watch(matchupRepositoryProvider);
   final center = ref.watch(searchCenterProvider);
   final uid = ref.watch(currentUserIdProvider);
-  return repo.nearbyMatchups(center: center, radiusKm: 250, excludeUserId: uid);
+  try {
+    return repo.nearbyMatchups(center: center, radiusKm: 250, excludeUserId: uid);
+  } catch (e) {
+    log(e.toString());
+    return Stream.value([]);
+  }
 });
 
 final matchupFromIdProvider = FutureProvider.autoDispose.family<Matchup, String>((ref, uid) async {

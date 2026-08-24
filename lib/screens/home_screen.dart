@@ -35,7 +35,8 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
-  Widget buildBottomBar(double rad) {
+  Widget _buildBottomBar() {
+    final rad = (Utils.cornerRadius ?? 20) - 12;
     final icons = [
       Icons.sports_basketball_rounded,
       Icons.chat_rounded,
@@ -95,17 +96,12 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    double rad = Utils.cornerRadius ?? 20;
-    rad -= 12;
-
     return Scaffold(
-      bottomNavigationBar: buildBottomBar(rad),
+      bottomNavigationBar: _buildBottomBar(),
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {
-          setState(() {
-            _currPage = index;
-          });
+          setState(() => _currPage = index);
         },
         physics: const ClampingScrollPhysics(),
         children: const [MatchupFeedScreen(), ChatInboxScreen(), LeaderboardScreen(), ProfileScreen()],

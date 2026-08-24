@@ -99,6 +99,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        scrolledUnderElevation: 0,
         title: chatAsync.maybeWhen(
           data: (chat) {
             final otherId = chat.otherParticipant(uid);
@@ -133,10 +134,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildDetailsSection(String requestId) {
     final requestAsync = ref.watch(matchRequestProvider(requestId));
-    return requestAsync.when(
-      loading: () => const LinearProgressIndicator(minHeight: 2),
-      error: (err, _) => const SizedBox.shrink(),
-      data: (request) => Padding(
+    return SkeletonWidget<MatchRequestDoc>(
+      val: requestAsync,
+      dummyData: MatchRequestDoc.dummy(),
+      builder: (request) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: ClipRSuperellipse(
           borderRadius: BorderRadius.circular(24),
@@ -264,6 +265,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
                 const SizedBox(width: 12),
                 SkeletonWidget(
+                  canPress: false,
                   val: lockedMatchesAsync,
                   dummyData: List<MatchDoc>.empty(),
                   builder: (List<MatchDoc>? data) {
@@ -392,7 +394,9 @@ class _StatusBanner extends StatelessWidget {
     return Container(
       decoration: ShapeDecoration(
         color: Theme.of(context).colorScheme.errorContainer,
-        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+        ),
       ),
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -431,7 +435,12 @@ class _DetailsWidget extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHigh),
+      decoration: ShapeDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+      ),
       child: editing
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

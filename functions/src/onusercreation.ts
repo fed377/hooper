@@ -1,15 +1,12 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import * as functionsV1 from "firebase-functions/v1";
+import * as functions from "firebase-functions"
 
-// This is a v1-style trigger (auth triggers aren't available in the v2
-// SDK yet) — v1 and v2 functions coexist fine in the same codebase,
-// this is just the one place that still uses the older import.
-export const onUserCreate = functionsV1
-  .region("europe-west1")
-  .auth.user()
-  .onCreate(async (user) => {
+export const onUserCreation = functions.identity.beforeUserCreated(async (event)=>{
     const db = getFirestore();
     const batch = db.batch();
+    const user = event.data;
+
+    if(!user) return;
 
     batch.set(db.collection("users").doc(user.uid), {
       authProviderId: user.uid,
@@ -38,10 +35,8 @@ export const onUserCreate = functionsV1
       bio: "",
       height: 0,
       position: 1,
-      status: "normal",
-      blockedBy: [],
-      blockedUsers: [],
+      status: "active",
     });
 
     await batch.commit();
-  });
+  })

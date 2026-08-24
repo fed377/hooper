@@ -1,11 +1,10 @@
-import 'dart:developer' show log;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/matchup.dart';
 import 'package:hooper/screens/chat_screen.dart';
 import 'package:hooper/screens/propose_screen.dart';
+import 'package:hooper/widgets/skeleton_widget.dart';
 
 import '../../data/providers.dart';
 import '../../widgets/matchup_card.dart';
@@ -20,15 +19,10 @@ class MatchupFeedScreen extends ConsumerWidget {
     final outgoingAsync = ref.watch(outgoingRequestsProvider);
 
     return Scaffold(
-      body: matchupsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) {
-          log(err.toString());
-          return Center(
-            child: Padding(padding: const EdgeInsets.all(24), child: Text('Could not load nearby players: $err')),
-          );
-        },
-        data: (matchups) {
+      body: SkeletonWidget<List<Matchup>>(
+        val: matchupsAsync,
+        dummyData: [Matchup.dummy()],
+        builder: (List<Matchup> matchups) {
           final outgoingByTarget = {for (final req in outgoingAsync.value ?? const []) req.targetId: req.id};
 
           List<Matchup> toRemove = [];
@@ -62,37 +56,37 @@ class MatchupFeedScreen extends ConsumerWidget {
 
           final incomingByInitiator = {for (final req in incomingAsync.value ?? const []) req.initiatorId: req.id};
 
-          return PageView.builder(
-            physics: BouncingScrollPhysics(),
-            itemCount: matchups.length,
-            scrollDirection: Axis.vertical,
-            itemBuilder: (context, index) {
-              final matchup = matchups[index];
-              final incomingRequestId = incomingByInitiator[matchup.id];
+          return RefreshIndicator(
+            onRefresh: () async {
+              nearbyMatchupsProvider.overrideWithValue(AsyncValue.data([]));
+              ref.invalidate(nearbyMatchupsProvider);
+            },
+            child: PageView.builder(
+              physics: const ClampingScrollPhysics(),
+              itemCount: matchups.length,
+              scrollDirection: Axis.vertical,
+              itemBuilder: (context, index) {
+                final matchup = matchups[index];
+                final incomingRequestId = incomingByInitiator[matchup.id];
 
-              return MatchupCard(
-                matchup: matchup,
-                hasChallengedYou: incomingRequestId != null,
-                onChallenge: () => ProposeMatchScreen.pushProposal(matchup.id, context),
-                onAccept: incomingRequestId == null
-                    ? null
-                    : () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            chatId: incomingRequestId,
-                          ),
-                        ),
-                      ),
-                myId: ref.read(currentUserIdProvider),
-                onChat: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen(
-                      chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider)),
+                return MatchupCard(
+                  matchup: matchup,
+                  hasChallengedYou: incomingRequestId != null,
+                  onChallenge: () => ProposeMatchScreen.pushProposal(matchup.id, context),
+                  onAccept: incomingRequestId == null
+                      ? null
+                      : () => Navigator.of(
+                          context,
+                        ).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: incomingRequestId))),
+                  myId: ref.read(currentUserIdProvider),
+                  onChat: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider))),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       ),

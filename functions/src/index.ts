@@ -13,7 +13,7 @@ export { proposeMatch } from "./matching/proposematch";
 export { startMatch } from "./matching/startmatch";
 export { updateMatchRequest } from "./matching/updatematchrequest";
 export { onChatMessageCreated } from "./notifications/onchatmessage";
-export { onUserCreate } from "./onusercreate";
+export { onUserCreation } from "./onusercreation";
 export { reconcileScore } from "./scoring/reconcilescore";
 export { submitScore } from "./scoring/submitscore";
 export { onMatchRequestCreated } from "./notifications/onmatchrequest";

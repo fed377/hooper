@@ -59,6 +59,20 @@ class MatchRequestDoc {
     );
   }
 
+  factory MatchRequestDoc.dummy() {
+    return MatchRequestDoc(
+      id: '',
+      mode: '',
+      initiatorId: '',
+      targetId: '',
+      court: '',
+      scheduledTime: DateTime(3000),
+      status: MatchRequestStatus.accepted,
+      chatId: '',
+      createdAt: DateTime.now(),
+    );
+  }
+
   bool isInitiator(String uid) => uid == initiatorId;
 
   /// The other participant's uid, relative to [uid].

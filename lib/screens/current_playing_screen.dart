@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/widgets/loading_screen_widget.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../data/providers.dart';
 import '../data/repos/match_repo.dart';
@@ -198,11 +199,9 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
         const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _submitting ? null : _submit,
-          child: _submitting
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Submit score'),
+        Skeletonizer(
+          enabled: _submitting,
+          child: FilledButton(onPressed: _submitting ? null : _submit, child: const Text('Submit score')),
         ),
         const SizedBox(height: 8),
       ],
