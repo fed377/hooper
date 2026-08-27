@@ -154,14 +154,16 @@ class FirestoreMatchRepository implements MatchRepository {
 
     final chatSnap = await chatRef.get();
     final batch = _firestore.batch();
+    final ids = chatId.split('_');
 
     if (!chatSnap.exists) {
       batch.set(chatRef, {
-        'participantIds': chatId.split('_'),
+        'participantIds': ids,
         'lastMatchRequestId': null,
         'createdAt': FieldValue.serverTimestamp(),
         'lastMessageAt': FieldValue.serverTimestamp(),
         'lastMessagePreview': text,
+        'lastMessageRead': {uid: messageRef.id},
       });
     } else {
       batch.update(chatRef, {'lastMessageAt': FieldValue.serverTimestamp(), 'lastMessagePreview': text});
@@ -250,6 +252,15 @@ class FirestoreMatchRepository implements MatchRepository {
       });
     } on FirebaseFunctionsException catch (e) {
       throw MatchActionException(e.code, e.message ?? 'Could not submit score.');
+    }
+  }
+
+  @override
+  Future<void> readMessage({required String userId, required String chatId, required String messageId}) async {
+    try {
+      await _firestore.collection('chats').doc(chatId).update({'lastMessageRead.$userId': messageId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not update last read message.');
     }
   }
 }

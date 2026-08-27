@@ -126,7 +126,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Column(
       children: [
         if (requestId != null) _buildDetailsSection(requestId),
-        Expanded(child: _buildChat(uid)),
+        Expanded(child: _buildChat(uid, otherId)),
         if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId),
       ],
     );
@@ -162,8 +162,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildChat(String uid) {
+  Widget _buildChat(String uid, String opponentId) {
     final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
+    final lastMessageIdAsync = ref.watch(lastMessageIdRead((widget.chatId, opponentId)));
     return Column(
       children: [
         Expanded(
@@ -176,9 +177,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
                 }
               });
+
               if (messages.isEmpty) {
                 return const Center(child: Text('No messages yet'));
               }
+              final repo = ref.read(matchRepositoryProvider);
+              repo.readMessage(
+                userId: ref.read(currentUserIdProvider),
+                chatId: widget.chatId,
+                messageId: messages.last.id,
+              );
               return ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(12),
@@ -189,7 +197,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     return _SystemMessage(msg: msg);
                   }
                   final isMine = msg.senderId == uid;
-                  return _UserMessage(isMine: isMine, msg: msg);
+                  return _UserMessage(isMine: isMine, msg: msg, wasLastRead: msg.id == lastMessageIdAsync.value);
                 },
               );
             },
@@ -302,26 +310,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _UserMessage extends StatelessWidget {
-  const _UserMessage({required this.isMine, required this.msg});
+  const _UserMessage({required this.isMine, required this.msg, required this.wasLastRead});
 
   final bool isMine;
+  final bool wasLastRead;
   final ChatMessage msg;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-        decoration: ShapeDecoration(
-          color: isMine
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-        child: Text(msg.text),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+            decoration: ShapeDecoration(
+              color: isMine
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: Text(msg.text),
+          ),
+          if (isMine && wasLastRead) Text('Read', style: TextTheme.of(context).labelMedium),
+        ],
       ),
     );
   }

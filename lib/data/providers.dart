@@ -48,6 +48,15 @@ final completedMatchesProvider = FutureProvider.autoDispose.family<List<String>,
   return (x.data()?['completedMatches'] as List?)?.cast<String>() ?? [];
 });
 
+// (String, String) => (chatId, userId)
+final lastMessageIdRead = FutureProvider.autoDispose.family<String?, SString>((ref, data) async {
+  final chatId = data.$1;
+  final userId = data.$2;
+  final chat = await FirebaseFirestore.instance.collection('chats').doc(chatId).get();
+  final map = (chat.data()?['lastMessageRead'] as Map?)?.cast<String, String>();
+  return map?[userId];
+});
+
 final myDateOfBirthProvider = StreamProvider.autoDispose.family<DateTime?, String>((ref, uid) {
   return FirebaseFirestore.instance
       .collection('users')

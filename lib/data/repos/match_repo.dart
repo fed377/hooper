@@ -11,6 +11,7 @@ abstract class MatchRepository {
   Stream<List<Chat>> watchMyChats(String uid);
   Stream<List<MatchDoc>> watchLockedMatches(String userId);
   Stream<Chat> watchChat(String chatId);
+  Future<void> readMessage({required String userId, required String chatId, required String messageId});
   Future<void> sendMessage({required String chatId, required String uid, required String text});
   Future<void> updateMatchRequestDetails({required String matchRequestId, String? courtText, DateTime? scheduledTime});
   Future<void> cancelRequest(String matchRequestId);
