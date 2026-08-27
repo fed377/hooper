@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 class FullScreenLoader extends StatelessWidget {
   final String? message;
-  const FullScreenLoader({super.key, this.message});
+  final Widget? widg;
+  const FullScreenLoader({super.key, this.message, this.widg});
 
   @override
   Widget build(BuildContext context) {
@@ -13,6 +14,7 @@ class FullScreenLoader extends StatelessWidget {
           children: [
             const CircularProgressIndicator(),
             if (message != null) ...[const SizedBox(height: 16), Text(message!)],
+            ?widg,
           ],
         ),
       ),

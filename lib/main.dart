@@ -9,11 +9,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooper/data/fcmservice.dart';
 import 'package:hooper/data/gates/auth_gate.dart';
 import 'package:hooper/firebase_options.dart';
+import 'package:hooper/data/google_auth_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await FCMService().init();
+
+  await GoogleAuthService.instance.initialize(
+    webClientId: "146796569082-cqcg4hmslg3a81gjoupatff6646omquq.apps.googleusercontent.com",
+    iosClientId: DefaultFirebaseOptions.currentPlatform.iosClientId,
+  );
   runApp(ProviderScope(child: const HooperApp()));
 }
 

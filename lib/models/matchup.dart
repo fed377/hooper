@@ -79,7 +79,7 @@ class Matchup {
   factory Matchup.dummy() {
     return Matchup(
       id: '',
-      displayName: 'dummy dummson',
+      displayName: 'dummy',
       elo: 1200,
       distanceKm: 10.5,
       recentForm: [true, false, false, false, true],

@@ -230,7 +230,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<PlayerPosition>(
-          value: _position,
+          initialValue: _position,
           decoration: const InputDecoration(labelText: 'Position', border: OutlineInputBorder()),
           items: PlayerPosition.values.map((p) => DropdownMenuItem(value: p, child: Text(p.name))).toList(),
           onChanged: (p) => setState(() => _position = p),

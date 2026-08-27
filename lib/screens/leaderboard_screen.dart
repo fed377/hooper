@@ -9,6 +9,8 @@ import 'package:hooper/models/matchup.dart';
 import 'package:hooper/widgets/skeleton_widget.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import 'matchup_view_screen.dart';
+
 class LeaderboardScreen extends ConsumerStatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -99,11 +101,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         actionsPadding: EdgeInsets.only(right: 12),
         title: Text("Leaderboard"),
         actions: [
-          SkeletonWidget<int?>(
+          SkeletonWidget<(int, int)>(
             val: ref.watch(rankProvider(ref.watch(currentUserIdProvider))),
-            dummyData: -1,
-            builder: (rank) {
-              return Chip(label: Text("Your Rank: $rank"));
+            dummyData: (-1, -1),
+            builder: ((int, int) values) {
+              int upper = values.$1;
+              int lower = values.$2;
+              return Chip(
+      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),label: Text("Your Rank: ${upper + 1} - $lower"));
             },
           ),
         ],
@@ -162,7 +167,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             subtitle: Text(m.elo.toString().toUpperCase()),
             onTap: m.id == ''
                 ? null
-                : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Text("test"))),
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MatchupViewScreen(matchup: m),
+                    ),
+                  ),
           );
         },
       ),

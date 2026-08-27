@@ -2,10 +2,12 @@ import 'dart:developer' show log;
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooper/models/player_profile.dart';
 import 'package:hooper/widgets/skeleton_widget.dart';
 import 'package:image_picker/image_picker.dart';
@@ -252,6 +254,13 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
                 setState(() {
                   _error = '';
                 });
+              },
+            ),
+            FilledButton(
+              child: Text("Log out"),
+              onPressed: () {
+                FirebaseAuth.instance.signOut();
+                GoogleSignIn.instance.signOut();
               },
             ),
             inputName.length >= 5

@@ -26,7 +26,7 @@ class SkeletonWidget<StateT> extends StatelessWidget {
       log(val.error.toString());
       log(val.stackTrace.toString());
       if (onError == null) {
-        return Text("Something went wrong");
+        return Text("Something went wrong: ${val.error}");
       } else {
         return onError!(val.error, val.stackTrace);
       }

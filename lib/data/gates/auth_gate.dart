@@ -1,10 +1,14 @@
+import 'dart:developer' show log;
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooper/data/fcmservice.dart';
-import 'package:hooper/widgets/loading_screen_widget.dart';
 import 'package:hooper/data/gates/lock_gate.dart';
 import 'package:hooper/data/heartbeat.dart';
 import 'package:hooper/screens/profile_fill_screen.dart';
+import 'package:hooper/widgets/loading_screen_widget.dart';
 
 import '../../../data/providers.dart';
 import '../../screens/authentication_screen.dart';
@@ -30,7 +34,17 @@ class AuthGate extends ConsumerWidget {
           error: (err, _) => Scaffold(body: Center(child: Text('Could not load your profile: $err'))),
           data: (exists) {
             if (!exists) {
-              return const FullScreenLoader(message: 'Setting up your profile…');
+              log("doesnt exist");
+              return FullScreenLoader(
+                message: 'Setting up your profile…',
+                widg: FilledButton(
+                  child: Text("Log out"),
+                  onPressed: () {
+                    FirebaseAuth.instance.signOut();
+                    GoogleSignIn.instance.signOut();
+                  },
+                ),
+              );
             }
             final dob = ref.watch(myDateOfBirthProvider(user.uid));
             return dob.when(

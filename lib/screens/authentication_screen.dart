@@ -3,6 +3,8 @@ import 'dart:developer' show log;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:hooper/data/google_auth_service.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class AuthenticationScreen extends StatefulWidget {
@@ -17,8 +19,33 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   final _passwordController = TextEditingController();
   bool _isRegistering = false;
   bool _submitting = false;
+  bool _submittingGoogle = false;
   String? _error;
   bool _showPw = false;
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _submittingGoogle = true;
+      _error = null;
+    });
+    try {
+      await GoogleAuthService.instance.signIn();
+      // No manual navigation — same as email/password, AuthGate reacts
+      // to authStateProvider on its own.
+    } on GoogleSignInException catch (e) {
+      if (!mounted) return;
+      // Cancelling the account picker isn't an error worth showing —
+      // every other GoogleSignInException code gets a generic message.
+      if (e.code != GoogleSignInExceptionCode.canceled) {
+        setState(() => _error = 'Could not sign in with Google. Please try again.');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = _messageFor(e.code));
+    } finally {
+      if (mounted) setState(() => _submittingGoogle = false);
+    }
+  }
 
   Future<void> _submit() async {
     setState(() {
@@ -127,6 +154,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
               const SizedBox(height: 16),
               Skeletonizer(
                 enabled: _submitting,
+
                 child: FilledButton(
                   onPressed: _submitting ? null : _submit,
                   child: Text(_isRegistering ? 'Create account' : 'Sign in'),
@@ -141,6 +169,28 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                         _error = null;
                       }),
                 child: Text(_isRegistering ? 'Already have an account? Sign in' : 'New here? Create an account'),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  const Expanded(child: Divider()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('or', style: Theme.of(context).textTheme.bodySmall),
+                  ),
+                  const Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _submittingGoogle ? null : _signInWithGoogle,
+                icon: _submittingGoogle
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(
+                        Icons.g_mobiledata,
+                        size: 28,
+                      ), // swap for the official Google "G" asset before shipping
+                label: const Text('Continue with Google'),
               ),
             ],
           ),

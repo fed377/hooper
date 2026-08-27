@@ -43,6 +43,11 @@ final isUniqueNameProvider = StreamProvider.autoDispose.family<bool, String>((re
   return FirebaseFirestore.instance.collection('usernames').doc(name).snapshots().map((snap) => snap.exists);
 });
 
+final completedMatchesProvider = FutureProvider.autoDispose.family<List<String>, String>((ref, uid) async {
+  final x = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
+  return (x.data()?['completedMatches'] as List?)?.cast<String>() ?? [];
+});
+
 final myDateOfBirthProvider = StreamProvider.autoDispose.family<DateTime?, String>((ref, uid) {
   return FirebaseFirestore.instance
       .collection('users')
@@ -99,16 +104,23 @@ final playerDiscoverRadiusProvider = FutureProvider.autoDispose.family<int, Stri
   return doc.data()?['visibilityRadius'] as int? ?? 10;
 });
 
-final rankProvider = FutureProvider.family<int?, String>((ref, uid) async {
+final rankProvider = FutureProvider.family<(int, int), String>((ref, uid) async {
   final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   final elo = doc.data()?['elo'] as int?;
-  if (elo == null) return null;
-  final rank = await FirebaseFirestore.instance
+  if (elo == null) return (-1, -1);
+  final upperRank = await FirebaseFirestore.instance
       .collection('playerProfiles')
       .where('elo', isGreaterThan: elo)
       .count()
       .get();
-  return (rank.count ?? 0) + 1;
+  final lowerRank = await FirebaseFirestore.instance
+      .collection('playerProfiles')
+      .where('elo', isGreaterThan: elo - 1)
+      .count()
+      .get();
+  final upper = upperRank.count ?? -1;
+  final lower = lowerRank.count ?? -1;
+  return (upper, lower);
 });
 
 // --- Discovery feed -------------------------------------------------------

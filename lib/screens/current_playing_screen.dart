@@ -38,15 +38,18 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     }
   }
 
-  Future<void> _confirmCancel(BuildContext context, WidgetRef ref, MatchDoc match) async {
+  Future<void> _confirmCancel(BuildContext context, WidgetRef ref, MatchDoc match, {abandon = false}) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel this match?'),
-        content: const Text("This can't be undone — you'll both need to reschedule."),
+        title: Text('${abandon ? "Abandon" : "Cancel"} this match?'),
+        content: Row(children: [Text("This can't be undone, you'll both need to reschedule. ")]),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Back')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Cancel match')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('${abandon ? "Abandon" : "Cancel"}  match'),
+          ),
         ],
       ),
     );
@@ -169,7 +172,10 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
           _buildEntryForm(),
         if (match.scoreSubmissions?.isEmpty ?? true) ...[
           const SizedBox(height: 14),
-          FilledButton(onPressed: () => _confirmCancel(context, ref, match), child: Text("Cancel Match")),
+          FilledButton(
+            onPressed: () => _confirmCancel(context, ref, match, abandon: true),
+            child: Text("Abandon Match"),
+          ),
         ],
       ],
     );

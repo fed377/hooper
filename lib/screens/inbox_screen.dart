@@ -96,7 +96,11 @@ class _ConversationTile extends ConsumerWidget {
   Widget? _statusChip(MatchRequestStatus status) {
     String? str = _statusString(status);
     if (str == null) return null;
-    return Chip(label: Text(str), visualDensity: VisualDensity.compact);
+    return Chip(
+      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+      label: Text(str),
+      visualDensity: VisualDensity.compact,
+    );
   }
 
   @override

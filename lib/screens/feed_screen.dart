@@ -75,9 +75,12 @@ class MatchupFeedScreen extends ConsumerWidget {
                   onChallenge: () => ProposeMatchScreen.pushProposal(matchup.id, context),
                   onAccept: incomingRequestId == null
                       ? null
-                      : () => Navigator.of(
-                          context,
-                        ).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: incomingRequestId))),
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ChatScreen(chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider))),
+                          ),
+                        ),
                   myId: ref.read(currentUserIdProvider),
                   onChat: () => Navigator.of(context).push(
                     MaterialPageRoute(

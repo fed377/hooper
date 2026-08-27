@@ -14,26 +14,24 @@ class MatchListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    var matchup2 = matchup;
     return Container(
       decoration: ShapeDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(radius)),
       ),
-      child: GestureDetector(
-        onTap: () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => MatchViewScreen(matchId: match.id))),
-        child: buildListTile(matchup),
-      ),
-    );
-  }
-
-  Widget buildListTile(Matchup matchup) {
-    return ListTile(
-      title: Text(matchup.displayName),
-      subtitle: Text(Utils.formatDate(match.scheduledTime)),
-      leading: CircleAvatar(
-        backgroundImage: matchup.photoUrl != null ? CachedNetworkImageProvider(matchup.photoUrl!) : null,
-        child: matchup.photoUrl == null ? Text(matchup.displayName[0]) : null,
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          onTap: () =>
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => MatchViewScreen(matchId: match.id))),
+          title: Text(matchup2.displayName),
+          subtitle: Text(Utils.formatDate(match.scheduledTime)),
+          leading: CircleAvatar(
+            backgroundImage: matchup2.photoUrl != null ? CachedNetworkImageProvider(matchup2.photoUrl!) : null,
+            child: matchup2.photoUrl == null ? Text(matchup2.displayName[0]) : null,
+          ),
+        ),
       ),
     );
   }

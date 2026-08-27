@@ -60,6 +60,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '146796569082',
     projectId: 'hooper-fedd',
     storageBucket: 'hooper-fedd.firebasestorage.app',
-    iosBundleId: 'com.example.hooper',
+    iosBundleId: 'com.fedvv.hooper',
   );
 }

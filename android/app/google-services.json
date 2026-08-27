@@ -7,31 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:146796569082:android:80cd888ddc0e29bed84443",
-        "android_client_info": {
-          "package_name": "com.example.hooper"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCFf2nBybvMwhXe1ZWEM8MTGyeoy7h_mFs"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:146796569082:android:736c002fb4831922d84443",
         "android_client_info": {
           "package_name": "com.fedvv.hooper"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "146796569082-slbjdce32g1d109mit4eq7urt7bjp00m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fedvv.hooper",
+            "certificate_hash": "e1f1dd67efc4fc7d8ddea47f6a869e9e14351eff"
+          }
+        },
+        {
+          "client_id": "146796569082-cqcg4hmslg3a81gjoupatff6646omquq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCFf2nBybvMwhXe1ZWEM8MTGyeoy7h_mFs"
@@ -39,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "146796569082-cqcg4hmslg3a81gjoupatff6646omquq.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "146796569082-k0rhbh5cpsa3dmm73t63k968svl541oq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fedvv.hooper"
+              }
+            }
+          ]
         }
       }
     }
