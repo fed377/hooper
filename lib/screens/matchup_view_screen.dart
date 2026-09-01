@@ -8,7 +8,7 @@ import 'package:hooper/models/matchup.dart';
 import 'package:hooper/screens/chat_screen.dart';
 import 'package:hooper/widgets/elo_rank_chip.dart';
 import 'package:hooper/widgets/match_list_tile.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
 class MatchupViewScreen extends ConsumerWidget {
@@ -24,7 +24,7 @@ class MatchupViewScreen extends ConsumerWidget {
       body: Padding(
         padding: const EdgeInsets.only(top: 46, left: 12, right: 12, bottom: 12),
         child: ClipRSuperellipse(
-          borderRadius: BorderRadius.circular(44),
+          borderRadius: .circular(44),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -44,7 +44,7 @@ class MatchupViewScreen extends ConsumerWidget {
                           child: matchup.bannerUrl == null || matchup.bannerUrl == ''
                               ? Center(child: Icon(Icons.question_mark_rounded))
                               : ClipRSuperellipse(
-                                  borderRadius: BorderRadius.circular(44),
+                                  borderRadius: .circular(44),
                                   child: Image.network(matchup.bannerUrl!, fit: BoxFit.cover),
                                 ),
                         ),
@@ -55,8 +55,8 @@ class MatchupViewScreen extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisSize: .min,
+                    mainAxisAlignment: .end,
                     children: [
                       IconButton.filledTonal(
                         style: ElevatedButton.styleFrom(
@@ -117,9 +117,7 @@ class MatchupViewScreen extends ConsumerWidget {
                         style: MenuStyle(
                           alignment: Alignment.bottomCenter,
                           elevation: WidgetStatePropertyAll(0),
-                          shape: WidgetStatePropertyAll(
-                            RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
-                          ),
+                          shape: WidgetStatePropertyAll(RoundedSuperellipseBorder(borderRadius: .circular(24))),
                         ),
                         builder: (context, controller, child) {
                           return IconButton.filledTonal(
@@ -149,22 +147,22 @@ class MatchupViewScreen extends ConsumerWidget {
                     child: Container(
                       decoration: ShapeDecoration(
                         color: Colors.white,
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(32)),
+                        shape: RoundedSuperellipseBorder(borderRadius: .circular(32)),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
                         child: OverflowBox(
                           fit: OverflowBoxFit.deferToChild,
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisSize: .min,
+                            mainAxisAlignment: .end,
                             children: [
                               Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
+                                crossAxisAlignment: .center,
                                 children: [
                                   Text(
                                     matchup.displayName,
-                                    style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                                    style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold),
                                   ),
                                   if (matchup.id != '') ...[const Spacer(), EloRankChip(elo: matchup.elo)],
                                 ],
@@ -190,14 +188,14 @@ class MatchupViewScreen extends ConsumerWidget {
                                       padding: EdgeInsets.only(left: 16, right: 16),
                                       decoration: ShapeDecoration(
                                         color: Theme.of(context).colorScheme.surfaceContainer,
-                                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(34)),
+                                        shape: RoundedSuperellipseBorder(borderRadius: .circular(34)),
                                       ),
                                       child: ConstrainedBox(
                                         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height / 3),
                                         child: Padding(
                                           padding: const EdgeInsets.only(top: 16, bottom: 16),
                                           child: ClipRSuperellipse(
-                                            borderRadius: BorderRadius.circular(34 - 16),
+                                            borderRadius: .circular(34 - 16),
                                             child: ListView.builder(
                                               primary: true,
                                               padding: EdgeInsets.zero,

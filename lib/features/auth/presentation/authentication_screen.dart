@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:hooper/data/google_auth_service.dart';
+import 'package:hooper/core/services/google_auth_service.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class AuthenticationScreen extends StatefulWidget {
@@ -30,12 +30,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     });
     try {
       await GoogleAuthService.instance.signIn();
-      // No manual navigation — same as email/password, AuthGate reacts
-      // to authStateProvider on its own.
     } on GoogleSignInException catch (e) {
       if (!mounted) return;
-      // Cancelling the account picker isn't an error worth showing —
-      // every other GoogleSignInException code gets a generic message.
       if (e.code != GoogleSignInExceptionCode.canceled) {
         setState(() => _error = 'Could not sign in with Google. Please try again.');
       }
@@ -114,8 +110,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         child: AutofillGroup(
           onDisposeAction: AutofillContextAction.cancel,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: .center,
+            crossAxisAlignment: .stretch,
             children: [
               TextField(
                 controller: _emailController,

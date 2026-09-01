@@ -22,7 +22,7 @@ class DefaultFirebaseOptions {
       );
     }
     switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
+      case .android:
         return android;
       case TargetPlatform.iOS:
         return ios;

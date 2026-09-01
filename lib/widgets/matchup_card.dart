@@ -40,7 +40,7 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
       child: GestureDetector(
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: match))),
         child: ClipRSuperellipse(
-          borderRadius: BorderRadius.circular(44),
+          borderRadius: .circular(44),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -60,7 +60,7 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
                           child: widget.matchup.bannerUrl == null || widget.matchup.bannerUrl == ''
                               ? Center(child: Icon(Icons.question_mark_rounded))
                               : ClipRSuperellipse(
-                                  borderRadius: BorderRadius.circular(44),
+                                  borderRadius: .circular(44),
                                   child: Image.network(widget.matchup.bannerUrl!, fit: BoxFit.cover),
                                 ),
                         ),
@@ -83,20 +83,20 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
                       child: Container(
                         decoration: ShapeDecoration(
                           color: Colors.white,
-                          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(32)),
+                          shape: RoundedSuperellipseBorder(borderRadius: .circular(32)),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: spacing),
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisSize: .min,
+                            mainAxisAlignment: .end,
                             children: [
                               Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
+                                crossAxisAlignment: .center,
                                 children: [
                                   Text(
                                     match.displayName,
-                                    style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                                    style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold),
                                   ),
                                   if (match.id != '') ...[
                                     const Spacer(),
@@ -120,9 +120,9 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
                               ),
                               const SizedBox(height: spacing),
                               Row(
-                                mainAxisSize: MainAxisSize.max,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisSize: .max,
+                                crossAxisAlignment: .end,
+                                mainAxisAlignment: .spaceBetween,
                                 children: [
                                   MenuAnchor(
                                     alignmentOffset: Offset(-10, -70),
@@ -173,7 +173,7 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
                                       alignment: Alignment.bottomCenter,
                                       elevation: WidgetStatePropertyAll(0),
                                       shape: WidgetStatePropertyAll(
-                                        RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+                                        RoundedSuperellipseBorder(borderRadius: .circular(24)),
                                       ),
                                     ),
                                     builder: (context, controller, child) {
@@ -207,7 +207,7 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
                                     child: FilledButton(
                                       style: ElevatedButton.styleFrom(
                                         minimumSize: Size(0, 50),
-                                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+                                        shape: RoundedSuperellipseBorder(borderRadius: .circular(24)),
                                       ),
                                       onPressed: widget.hasChallengedYou ? widget.onAccept : widget.onChallenge,
                                       child: Text(

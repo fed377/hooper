@@ -45,7 +45,7 @@ class _ActivityHeartbeatState extends ConsumerState<ActivityHeartbeat> with Widg
   }
 
   void _touch() {
-    final now = DateTime.now();
+    final DateTime now = .now();
     if (_lastSent != null && now.difference(_lastSent!) < _minInterval) return;
     _lastSent = now;
     ref.read(playerProfileRepositoryProvider).touchLastActive(widget.uid);

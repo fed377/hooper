@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
-class FullScreenLoader extends StatelessWidget {
+class SplashScreen extends StatelessWidget {
   final String? message;
+  final bool showLoading;
   final Widget? widg;
-  const FullScreenLoader({super.key, this.message, this.widg});
+  const SplashScreen({super.key, this.message, this.widg, this.showLoading = true});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: .min,
           children: [
-            const CircularProgressIndicator(),
+            if (showLoading) const CircularProgressIndicator(),
             if (message != null) ...[const SizedBox(height: 16), Text(message!)],
             ?widg,
           ],

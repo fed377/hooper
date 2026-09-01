@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/data/providers.dart';
 import 'package:hooper/models/matchup.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import 'matchup_view_screen.dart';
@@ -108,7 +108,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               int upper = values.$1;
               int lower = values.$2;
               return Chip(
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),label: Text("Your Rank: ${upper + 1} - $lower"));
+                shape: RoundedSuperellipseBorder(borderRadius: .circular(12)),
+                label: Text("Your Rank: ${upper + 1} - $lower"),
+              );
             },
           ),
         ],
@@ -126,7 +128,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: .min,
             children: [
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
@@ -154,7 +156,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           final m = _entries[index];
           return ListTile(
             leading: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
               children: [
                 Text(rank.toString(), style: TextTheme.of(context).bodyLarge),
                 const SizedBox(width: 14),
@@ -167,11 +169,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             subtitle: Text(m.elo.toString().toUpperCase()),
             onTap: m.id == ''
                 ? null
-                : () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => MatchupViewScreen(matchup: m),
-                    ),
-                  ),
+                : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: m))),
           );
         },
       ),
@@ -185,7 +183,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           count,
           (_) => ListTile(
             leading: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
               children: [
                 Text("12", style: TextTheme.of(context).bodyLarge),
                 const SizedBox(width: 14),

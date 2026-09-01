@@ -1,16 +1,20 @@
 import 'dart:developer' show log;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/data/repos/match_repo.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/chat_message.dart';
 import 'package:hooper/models/match_request_doc.dart';
 import 'package:hooper/screens/propose_screen.dart';
-import 'package:hooper/widgets/loading_screen_widget.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/utils/utils.dart' as utils;
+import 'package:hooper/core/widgets/loading_screen_widget.dart';
+import 'package:hooper/widgets/location_picker.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
+import 'package:map_launcher/map_launcher.dart';
 
 import '../data/providers.dart';
-import '../data/repos/match_repo.dart';
 import '../models/match_doc.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -29,13 +33,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _courtController = TextEditingController();
   DateTime? _editedTime;
   bool _busy = false;
+  bool _sendingMessage = false;
+  GeoPoint? _chosenLocation;
 
   Future<void> _send() async {
+    setState(() => _sendingMessage = true);
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     _messageController.clear();
     final uid = ref.read(currentUserIdProvider);
     await ref.read(matchRepositoryProvider).sendMessage(chatId: widget.chatId, uid: uid, text: text);
+    setState(() => _sendingMessage = false);
   }
 
   void _startEditingDetails(MatchRequestDoc request) {
@@ -45,12 +53,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _pickEditedTime() async {
-    final base = _editedTime ?? DateTime.now();
+    final base = _editedTime ?? .now();
     final date = await showDatePicker(
       context: context,
       initialDate: base,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 14)),
+      firstDate: .now(),
+      lastDate: .now().add(const Duration(days: 14)),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(base));
@@ -67,8 +75,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           .read(matchRepositoryProvider)
           .updateMatchRequestDetails(
             matchRequestId: requestId,
-            courtText: _courtController.text.trim(),
+            court: _courtController.text.trim(),
             scheduledTime: _editedTime,
+            location: _chosenLocation,
           );
       if (!mounted) return;
       setState(() => _editingDetails = false);
@@ -110,7 +119,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       ),
       body: chatAsync.when(
-        loading: () => const FullScreenLoader(),
+        loading: () => const SplashScreen(),
         error: (err, st) {
           log(st.toString());
           return Center(child: Text('Could not load this chat: $err'));
@@ -125,8 +134,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Column(
       children: [
-        if (requestId != null) _buildDetailsSection(requestId),
-        Expanded(child: _buildChat(uid, otherId)),
+        Expanded(
+          child: Stack(
+            children: [
+              SizedBox.expand(child: _buildChat(uid, otherId)),
+              SizedBox.expand(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.white, const Color.fromARGB(0, 255, 255, 255)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: [0, 0.3],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (requestId != null) _buildDetailsSection(requestId),
+            ],
+          ),
+        ),
         if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId),
       ],
     );
@@ -140,7 +169,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       builder: (request) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: ClipRSuperellipse(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: .circular(24),
           child: Column(
             children: [
               _DetailsWidget(
@@ -153,6 +182,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onPickTime: _pickEditedTime,
                 onSave: () => _saveDetails(requestId),
                 onCancelEdit: () => setState(() => _editingDetails = false),
+                onPickLocation: () async {
+                  final location = await LocationPicker.pickLocation(context, _chosenLocation ?? request.location);
+                  if (location != null) _chosenLocation = location;
+                },
               ),
               _StatusBanner(status: request.status),
             ],
@@ -210,11 +243,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               Expanded(
                 child: TextField(
                   controller: _messageController,
-                  decoration: const InputDecoration(hintText: 'Message…', border: OutlineInputBorder(), isDense: true),
-                  onSubmitted: (_) => _send(),
+                  decoration: InputDecoration(
+                    hintText: _sendingMessage ? 'Sending...' : 'Message…',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _sendingMessage ? null : _send(),
                 ),
               ),
-              IconButton(icon: const Icon(Icons.send), onPressed: _send),
+              IconButton(icon: const Icon(Icons.send), onPressed: _sendingMessage ? null : _send),
             ],
           ),
         ),
@@ -321,8 +358,8 @@ class _UserMessage extends StatelessWidget {
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: .min,
+        crossAxisAlignment: isMine ? .end : .start,
         children: [
           Container(
             margin: const EdgeInsets.symmetric(vertical: 3),
@@ -332,7 +369,7 @@ class _UserMessage extends StatelessWidget {
               color: isMine
                   ? Theme.of(context).colorScheme.primaryContainer
                   : Theme.of(context).colorScheme.surfaceContainerHighest,
-              shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedSuperellipseBorder(borderRadius: .circular(14)),
             ),
             child: Text(msg.text),
           ),
@@ -350,10 +387,11 @@ class _SystemMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String text = utils.parseDateMessage(msg.text);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: .max,
         children: [
           const SizedBox(width: 25),
           Flexible(
@@ -361,16 +399,14 @@ class _SystemMessage extends StatelessWidget {
             child: Container(
               decoration: ShapeDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainer,
-                shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedSuperellipseBorder(borderRadius: .circular(12)),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
-                  msg.text,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+                  text,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.outline),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -389,24 +425,15 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String? message;
-    switch (status) {
-      case MatchRequestStatus.declined:
-        message = 'This request was declined.';
-        break;
-      case MatchRequestStatus.withdrawn:
-        message = 'This request was cancelled.';
-        break;
-      case MatchRequestStatus.expired:
-        message = 'This request expired.';
-        break;
-      case MatchRequestStatus.pending:
-      case MatchRequestStatus.accepted:
-        message = null;
-      case MatchRequestStatus.finished:
-        message = "This match is finished";
-    }
-    if (message == null) return const SizedBox.shrink();
+    String? message = switch (status) {
+      .declined => 'This request was declined.',
+      .withdrawn => 'This request was cancelled.',
+      .expired => 'This request expired.',
+      .pending => 'This request has not been accepted yet. ',
+      .accepted => 'This match is scheduled',
+      .finished => "This match is finished",
+    };
+
     return Container(
       decoration: ShapeDecoration(
         color: Theme.of(context).colorScheme.errorContainer,
@@ -431,6 +458,7 @@ class _DetailsWidget extends StatelessWidget {
   final VoidCallback onPickTime;
   final VoidCallback onSave;
   final VoidCallback onCancelEdit;
+  final VoidCallback onPickLocation;
 
   const _DetailsWidget({
     required this.request,
@@ -442,6 +470,7 @@ class _DetailsWidget extends StatelessWidget {
     required this.onPickTime,
     required this.onSave,
     required this.onCancelEdit,
+    required this.onPickLocation,
   });
 
   @override
@@ -459,7 +488,7 @@ class _DetailsWidget extends StatelessWidget {
       ),
       child: editing
           ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: .stretch,
               children: [
                 TextField(
                   controller: courtController,
@@ -467,6 +496,8 @@ class _DetailsWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
+                const SizedBox(height: 8),
+                OutlinedButton(onPressed: onPickLocation, child: Text('Choose new location')),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -485,16 +516,23 @@ class _DetailsWidget extends StatelessWidget {
               children: [
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: .start,
                     children: [
                       Text(request.court, style: Theme.of(context).textTheme.titleSmall),
-                      Text(request.scheduledTime.toString(), style: Theme.of(context).textTheme.bodySmall),
+                      Text(request.scheduledTime.toLocal().toString(), style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
                 if (canEdit) IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined)),
+                IconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded)),
               ],
             ),
     );
+  }
+
+  void launchMaps() async {
+    final double latitude, longitude;
+    (latitude, longitude) = (request.location.latitude, request.location.longitude);
+    await MapLauncher.marker(Location.coords(latitude, longitude)).show();
   }
 }

@@ -1,11 +1,14 @@
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { GeoPoint, getFirestore, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { postSystemMessage } from "./chatutils";
+import { log } from "firebase-functions/logger";
 
 interface UpdateMatchRequestPayload {
   matchRequestId: string;
   court?: string;
   scheduledTime?: string; // ISO 8601
+  latitude?: number;
+  longitude?: number;
 }
 
 export const updateMatchRequest = onCall(async (request) => {
@@ -14,12 +17,12 @@ export const updateMatchRequest = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  const { matchRequestId, court, scheduledTime } =
+  const { matchRequestId, court, scheduledTime, latitude, longitude } =
     request.data as UpdateMatchRequestPayload;
-  if (!matchRequestId || (!court?.trim() && !scheduledTime)) {
+  if (!matchRequestId || (!court?.trim() && !scheduledTime && !latitude)) {
     throw new HttpsError(
       "invalid-argument",
-      "matchRequestId and at least one of court/scheduledTime are required.",
+      "matchRequestId and at least one of court/scheduledTime/location are required.",
     );
   }
 
@@ -50,7 +53,7 @@ export const updateMatchRequest = onCall(async (request) => {
     const changes: Record<string, unknown> = {};
     const changeDescriptions: string[] = [];
 
-    if (court?.trim() && court.trim() !== req.courtText) {
+    if (court?.trim() && court.trim() !== req.court) {
       changes.court = court.trim();
       changeDescriptions.push(`the court to ${court.trim()}`);
     }
@@ -66,9 +69,15 @@ export const updateMatchRequest = onCall(async (request) => {
         newTimestamp.toMillis() !== (req.scheduledTime as Timestamp).toMillis()
       ) {
         changes.scheduledTime = newTimestamp;
-        changeDescriptions.push(
-          `the time to ${newTimestamp.toDate().toLocaleString()}`,
-        );
+        changeDescriptions.push(`the time to $$${newTimestamp.toMillis()}$$`);
+      }
+    }
+    log(latitude, longitude);
+    if (latitude && longitude) {
+      const location = new GeoPoint(latitude, longitude);
+      if (!location.isEqual(req.location)) {
+        changes.location = location;
+        changeDescriptions.push("the location");
       }
     }
 

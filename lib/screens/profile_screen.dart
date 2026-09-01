@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooper/widgets/match_list_tile.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
 import '../models/matchup.dart' show tierForElo, tierLabel;
@@ -54,9 +54,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Turn on location services and try again.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Turn on location services and try again.')));
         return;
       }
 
@@ -182,7 +181,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: EdgeInsets.all(16),
                 decoration: ShapeDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainer,
-                  shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(radius)),
+                  shape: RoundedSuperellipseBorder(borderRadius: .circular(radius)),
                 ),
                 child: ListView.builder(
                   itemCount: profile.completedMatchIds!.length,
@@ -282,10 +281,10 @@ class _StatBox extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: ShapeDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedSuperellipseBorder(borderRadius: .circular(16)),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: .start,
           children: [
             Text(value, style: Theme.of(context).textTheme.titleLarge),
             Text(label, style: Theme.of(context).textTheme.bodySmall),

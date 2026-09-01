@@ -1,14 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/data/repos/match_repo.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/matchup.dart';
 import 'package:hooper/screens/chat_screen.dart';
 import 'package:hooper/screens/matchup_view_screen.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
-import '../data/repos/match_repo.dart';
 import '../models/match_doc.dart';
 
 //View a match that is not currently ongoing
@@ -100,7 +100,7 @@ class _MatchBody extends ConsumerWidget {
         if (!isParticipant)
           Center(
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
               children: [
                 if (!isParticipant) ...[
                   SkeletonWidget<Matchup>(
@@ -109,7 +109,7 @@ class _MatchBody extends ConsumerWidget {
                     builder: (Matchup m) => _buildDisplayCard(context, m),
                   ),
                   Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: .end,
                     children: [
                       const SizedBox(height: 102, width: 50),
                       Text(" vs ", style: Theme.of(context).textTheme.headlineSmall),
@@ -170,7 +170,7 @@ class _MatchBody extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: ShapeDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
       ),
       child: Column(
         children: [
@@ -196,11 +196,11 @@ class _ResultSideRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: .spaceBetween,
       children: [
         Text(
           isMe ? '$name (You)' : name,
-          style: TextStyle(fontWeight: won ? FontWeight.bold : FontWeight.normal, color: won ? Colors.green : null),
+          style: TextStyle(fontWeight: won ? .bold : .normal, color: won ? Colors.green : null),
         ),
         if (delta != null)
           Text('${delta! > 0 ? '+' : ''}$delta elo', style: TextStyle(color: delta! > 0 ? Colors.green : Colors.red)),
@@ -225,7 +225,7 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: .start,
               children: [
                 Text(
                   label,
@@ -245,28 +245,20 @@ class _StatusChip extends StatelessWidget {
   final MatchStatus status;
   const _StatusChip({required this.status});
 
-  (String, Color?) _labelAndColor(BuildContext context) {
-    switch (status) {
-      case MatchStatus.scheduled:
-        return ('Upcoming', null);
-      case MatchStatus.inProgress:
-        return ('In progress', Colors.orange);
-      case MatchStatus.awaitingConfirmation:
-        return ('Awaiting confirmation', Colors.orange);
-      case MatchStatus.disputed:
-        return ('Disputed', Theme.of(context).colorScheme.error);
-      case MatchStatus.confirmed:
-        return ('Confirmed', Colors.green);
-      case MatchStatus.cancelled:
-        return ('Cancelled', null);
-    }
-  }
+  (String, Color?) _labelAndColor(BuildContext context) => switch (status) {
+    .scheduled => ('Upcoming', null),
+    .inProgress => ('In progress', Colors.orange),
+    .awaitingConfirmation => ('Awaiting confirmation', Colors.orange),
+    .disputed => ('Disputed', Theme.of(context).colorScheme.error),
+    .confirmed => ('Confirmed', Colors.green),
+    .cancelled => ('Cancelled', null),
+  };
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = _labelAndColor(context);
     return Chip(
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedSuperellipseBorder(borderRadius: .circular(12)),
       label: Text(label),
       labelStyle: color != null ? TextStyle(color: color) : null,
       visualDensity: VisualDensity.compact,

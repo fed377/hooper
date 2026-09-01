@@ -1,20 +1,23 @@
 import 'dart:developer' show log;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:hooper/data/repos/matchups_repo.dart';
 import 'package:hooper/models/match_doc.dart';
 import 'package:hooper/screens/chat_screen.dart';
+import 'package:hooper/widgets/location_picker.dart';
 
 import '../../data/providers.dart';
-import '../../data/repos/matchup_repo.dart';
 import '../../models/matchup.dart';
-import '../../widgets/skeleton_widget.dart';
+import '../core/widgets/skeleton_widget.dart';
 
 class ProposeMatchScreen extends ConsumerStatefulWidget {
   final String targetId;
   const ProposeMatchScreen({super.key, required this.targetId});
 
-  static void pushProposal(final String targetId, BuildContext context) {
+  static void pushProposal(String targetId, BuildContext context) {
     showModalBottomSheet(
       showDragHandle: true,
       context: context,
@@ -32,13 +35,14 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
   final _courtController = TextEditingController();
   DateTime? _selectedTime;
   bool _sending = false;
+  LocationPickerController locationController = LocationPickerController(point: GeoPoint(0, 0));
 
   Future<void> _pickTime() async {
     final date = await showDatePicker(
       context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 14)),
-      initialDate: DateTime.now().add(Duration(days: 1)),
+      firstDate: .now(),
+      lastDate: .now().add(const Duration(days: 14)),
+      initialDate: .now().add(Duration(days: 1)),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
@@ -51,13 +55,19 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
   Future<void> _send() async {
     final court = _courtController.text.trim();
     if (court.isEmpty || _selectedTime == null) return;
+    if (!locationController.hasMoved) return;
     setState(() => _sending = true);
     try {
       final repo = ref.read(matchupRepositoryProvider);
-      final response = await repo.proposeMatch(targetId: widget.targetId, court: court, scheduledTime: _selectedTime!);
+      final response = await repo.proposeMatch(
+        targetId: widget.targetId,
+        court: court,
+        scheduledTime: _selectedTime!,
+        location: GeoPoint(locationController.point.latitude, locationController.point.longitude),
+      );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ChatScreen(chatId: response.chatId)));
-    } on ProposeMatchException catch (e) {
+    } on ProposalException catch (e) {
       if (!mounted) return;
       log(e.toString());
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -78,6 +88,7 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
 
   Widget _buildBody(BuildContext context, Matchup target) {
     final lockedMatchesAsync = ref.watch(lockedMatchesProvider);
+    final locationAsync = ref.read(myLocationProvider);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -91,6 +102,25 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
             labelText: 'Court',
             hintText: 'e.g. Riverside Courts, west hoop',
             border: OutlineInputBorder(),
+          ),
+        ),
+        SkeletonWidget<Position>(
+          builder: (pos) {
+            locationController.point = GeoPoint(pos.latitude, pos.longitude);
+            return LocationPicker(controller: locationController);
+          },
+          val: locationAsync,
+          dummyData: Position(
+            longitude: 0,
+            latitude: 0,
+            timestamp: .now(),
+            accuracy: 0,
+            altitude: 0,
+            altitudeAccuracy: 0,
+            heading: 0,
+            headingAccuracy: 0,
+            speed: 0,
+            speedAccuracy: 0,
           ),
         ),
         const SizedBox(height: 24),

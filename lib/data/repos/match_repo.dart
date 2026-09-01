@@ -1,28 +1,13 @@
+import 'dart:async';
+import 'dart:developer' show log;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/chat_message.dart';
 import 'package:hooper/models/match_request_doc.dart';
 
 import '../../models/match_doc.dart';
-
-abstract class MatchRepository {
-  Stream<MatchDoc> watchMatch(String matchId);
-  Stream<List<MatchRequestDoc>> watchRequestsToId(String uid);
-  Stream<List<MatchRequestDoc>> watchRequestsFromId(String uid);
-  Stream<List<Chat>> watchMyChats(String uid);
-  Stream<List<MatchDoc>> watchLockedMatches(String userId);
-  Stream<Chat> watchChat(String chatId);
-  Future<void> readMessage({required String userId, required String chatId, required String messageId});
-  Future<void> sendMessage({required String chatId, required String uid, required String text});
-  Future<void> updateMatchRequestDetails({required String matchRequestId, String? courtText, DateTime? scheduledTime});
-  Future<void> cancelRequest(String matchRequestId);
-  Future<String> acceptRequest(String matchRequestId);
-  Future<void> declineRequest(String matchRequestId);
-  Stream<MatchRequestDoc> watchMatchRequest(String matchRequestId);
-  Stream<List<ChatMessage>> watchMessages(String matchRequestId);
-  Future<void> cancelMatch(String matchId);
-  Future<void> submitScore({required String matchId, required int myScore, required int opponentScore});
-  Future<void> startMatch(String matchId);
-}
 
 class MatchActionException implements Exception {
   final String code;
@@ -31,4 +16,246 @@ class MatchActionException implements Exception {
 
   @override
   String toString() => 'MatchActionException($code): $message';
+}
+
+class FirestoreMatchRepository {
+  FirestoreMatchRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _functions = functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
+
+  final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
+
+  Stream<MatchDoc> watchMatch(String matchId) {
+    return _firestore.collection('matches').doc(matchId).snapshots().map((snap) {
+      final data = snap.data()!;
+      return MatchDoc.fromJson({...data, 'id': snap.id});
+    });
+  }
+
+  Stream<List<MatchRequestDoc>> watchRequestsToId(String uid) {
+    return _firestore
+        .collection('matchRequests')
+        .where('targetId', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => _requestFromSnap(d)).toList());
+  }
+
+  Stream<List<MatchRequestDoc>> watchRequestsFromId(String uid) {
+    return _firestore
+        .collection('matchRequests')
+        .where('initiatorId', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => _requestFromSnap(d)).toList());
+  }
+
+  Stream<List<Chat>> watchMyChats(String uid) {
+    return _firestore.collection('chats').where('participantIds', arrayContains: uid).snapshots().map((snap) {
+      final chats = snap.docs.map(_chatFromSnap).toList();
+      chats.sort((a, b) {
+        final aTime = a.lastMessageAt ?? a.createdAt;
+        final bTime = b.lastMessageAt ?? b.createdAt;
+        return bTime.compareTo(aTime); // most recent first
+      });
+      return chats;
+    });
+  }
+
+  Stream<Chat> watchChat(String chatId) {
+    return _firestore.collection('chats').doc(chatId).snapshots().map((snap) {
+      if (!snap.exists) {
+        return Chat(id: chatId, participantIds: chatId.split('_'), lastMatchRequestId: null, createdAt: .now());
+      }
+      return _chatFromSnap(snap);
+    });
+  }
+
+  Chat _chatFromSnap(DocumentSnapshot<Map<String, dynamic>> snap) {
+    final data = snap.data()!;
+    return Chat.fromJson({
+      ...data,
+      'id': snap.id,
+      'createdAt': (data['createdAt'] as Timestamp).toDate(),
+      'lastMessageAt': (data['lastMessageAt'] as Timestamp?)?.toDate(),
+    });
+  }
+
+  Stream<MatchRequestDoc> watchMatchRequest(String matchRequestId) {
+    return _firestore.collection('matchRequests').doc(matchRequestId).snapshots().map((snap) => _requestFromSnap(snap));
+  }
+
+  MatchRequestDoc _requestFromSnap(DocumentSnapshot<Map<String, dynamic>> snap) {
+    final data = snap.data()!;
+    return MatchRequestDoc.fromJson({
+      ...data,
+      'id': snap.id,
+      'scheduledTime': (data['scheduledTime'] as Timestamp).toDate(),
+      'createdAt': (data['createdAt'] as Timestamp).toDate(),
+    });
+  }
+
+  Stream<List<ChatMessage>> watchMessages(String chatId) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('createdAt')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((d) {
+            final data = d.data();
+            return ChatMessage.fromJson({
+              ...data,
+              'id': d.id,
+              'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? .now(),
+            });
+          }).toList(),
+        );
+  }
+
+  Stream<List<MatchDoc>> watchLockedMatches(String userId) {
+    return _firestore.collection('playerProfiles').doc(userId).snapshots().asyncExpand((userSnap) {
+      if (!userSnap.exists) {
+        return Stream.value([]);
+      }
+
+      final data = userSnap.data();
+      final List<String> lockedMatchIds = (data?["lockedMatchIds"] as List?)?.cast<String>() ?? const [];
+
+      if (lockedMatchIds.isEmpty) {
+        return Stream.value([]);
+      }
+
+      final constrainedIds = lockedMatchIds.take(30).toList();
+
+      return _firestore
+          .collection('matches')
+          .where(FieldPath.documentId, whereIn: constrainedIds)
+          .snapshots()
+          .map(
+            (matchSnap) => matchSnap.docs.map((d) {
+              final matchData = d.data();
+              return MatchDoc.fromJson({
+                ...matchData,
+                'id': d.id,
+                'createdAt': (matchData['createdAt'] as Timestamp?)?.toDate() ?? .now(),
+                'startTime': (matchData['startTime'] as Timestamp?)?.toDate() ?? .now(),
+              });
+            }).toList(),
+          );
+    });
+  }
+
+  Future<void> sendMessage({required String chatId, required String uid, required String text}) async {
+    final chatRef = _firestore.collection('chats').doc(chatId);
+    final messageRef = chatRef.collection('messages').doc();
+
+    final chatSnap = await chatRef.get();
+    final batch = _firestore.batch();
+
+    if (!chatSnap.exists) {
+      batch.set(chatRef, {
+        'participantIds': chatId.split('_'),
+        'lastMatchRequestId': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessagePreview': text,
+        'lastMessageRead': {uid: messageRef.id},
+      });
+    } else {
+      batch.update(chatRef, {'lastMessageAt': FieldValue.serverTimestamp(), 'lastMessagePreview': text});
+    }
+
+    batch.set(messageRef, {
+      'isSystem': false,
+      'senderId': uid,
+      'text': text,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return await batch.commit();
+  }
+
+  Future<void> updateMatchRequestDetails({
+    required String matchRequestId,
+    String? court,
+    DateTime? scheduledTime,
+    GeoPoint? location,
+  }) async {
+    log(location.toString());
+    try {
+      await _functions.httpsCallable('updateMatchRequest').call({
+        'matchRequestId': matchRequestId,
+        'court': ?court,
+        if (scheduledTime != null) 'scheduledTime': scheduledTime.toUtc().toIso8601String(),
+        'latitude': location?.latitude,
+        'longitude': location?.longitude,
+      });
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not update the proposal.');
+    }
+  }
+
+  Future<void> cancelRequest(String matchRequestId) async {
+    try {
+      await _functions.httpsCallable('cancelRequest').call({'matchRequestId': matchRequestId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not cancel the request.');
+    }
+  }
+
+  Future<String> acceptRequest(String matchRequestId) async {
+    try {
+      final result = await _functions.httpsCallable('acceptRequest').call({'matchRequestId': matchRequestId});
+      final data = Map<String, dynamic>.from(result.data as Map);
+      return data['matchId'] as String;
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not accept.');
+    }
+  }
+
+  Future<void> declineRequest(String matchRequestId) async {
+    try {
+      await _functions.httpsCallable('declineRequest').call({'matchRequestId': matchRequestId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not decline.');
+    }
+  }
+
+  Future<void> cancelMatch(String matchId) async {
+    try {
+      await _functions.httpsCallable('cancelMatch').call({'matchId': matchId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not cancel.');
+    }
+  }
+
+  Future<void> startMatch(String matchId) async {
+    try {
+      await _functions.httpsCallable('startMatch').call({'matchId': matchId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not start.');
+    }
+  }
+
+  Future<void> submitScore({required String matchId, required int myScore, required int opponentScore}) async {
+    try {
+      await _functions.httpsCallable('submitScore').call({
+        'matchId': matchId,
+        'myScore': myScore,
+        'opponentScore': opponentScore,
+      });
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not submit score.');
+    }
+  }
+
+  Future<void> readMessage({required String userId, required String chatId, required String messageId}) async {
+    try {
+      await _firestore.collection('chats').doc(chatId).update({'lastMessageRead.$userId': messageId});
+    } on FirebaseFunctionsException catch (e) {
+      throw MatchActionException(e.code, e.message ?? 'Could not update last read message.');
+    }
+  }
 }

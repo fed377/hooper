@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/match_request_doc.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/utils/utils.dart' as utils;
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 
 import '../data/providers.dart';
 import 'chat_screen.dart';
@@ -27,7 +28,7 @@ class ChatInboxScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: .min,
                   children: [
                     const Icon(Icons.chat_bubble_outline, size: 48),
                     const SizedBox(height: 12),
@@ -48,7 +49,7 @@ class ChatInboxScreen extends ConsumerWidget {
                 height: 1,
                 thickness: 2,
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                radius: BorderRadius.circular(10),
+                radius: .circular(10),
               ),
             ),
             itemBuilder: (context, index) {
@@ -76,28 +77,20 @@ class _ConversationTile extends ConsumerWidget {
     return '${time.month}/${time.day}';
   }
 
-  String? _statusString(MatchRequestStatus status) {
-    switch (status) {
-      case MatchRequestStatus.accepted:
-        return 'Confirmed';
-      case MatchRequestStatus.declined:
-        return 'Declined';
-      case MatchRequestStatus.withdrawn:
-        return 'Cancelled';
-      case MatchRequestStatus.expired:
-        return 'Expired';
-      case MatchRequestStatus.finished:
-        return 'Finished';
-      case MatchRequestStatus.pending:
-        return null;
-    }
-  }
+  String? _statusString(MatchRequestStatus status) => switch (status) {
+    .accepted => 'Confirmed',
+    .declined => 'Declined',
+    .withdrawn => 'Cancelled',
+    .expired => 'Expired',
+    .finished => 'Finished',
+    .pending => null,
+  };
 
   Widget? _statusChip(MatchRequestStatus status) {
     String? str = _statusString(status);
     if (str == null) return null;
     return Chip(
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedSuperellipseBorder(borderRadius: .circular(12)),
       label: Text(str),
       visualDensity: VisualDensity.compact,
     );
@@ -108,12 +101,12 @@ class _ConversationTile extends ConsumerWidget {
     if (uid == '') {
       return ListTile(
         leading: CircleAvatar(child: Text('')),
-        title: Text('Sample username', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-        subtitle: Text("sample last message preview", maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text('Sample username', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: .bold)),
+        subtitle: Text("sample last message preview", maxLines: 1, overflow: .ellipsis),
         trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [Text(_relativeTime(DateTime.now()), style: Theme.of(context).textTheme.bodySmall)],
+          mainAxisAlignment: .center,
+          crossAxisAlignment: .end,
+          children: [Text(_relativeTime(.now()), style: Theme.of(context).textTheme.bodySmall)],
         ),
       );
     }
@@ -141,14 +134,15 @@ class _ConversationTile extends ConsumerWidget {
         error: (_, _) => null,
         loading: () => null,
       ),
-      title: Text(
-        nameAsync.value ?? 'Loading…',
-        style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+      title: Text(nameAsync.value ?? 'Loading…', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: .bold)),
+      subtitle: Text(
+        utils.parseDateMessage(chat.lastMessagePreview ?? "No messages"),
+        maxLines: 1,
+        overflow: .ellipsis,
       ),
-      subtitle: Text(chat.lastMessagePreview ?? "No messages", maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: .center,
+        crossAxisAlignment: .end,
         children: [
           Text(_relativeTime(lastActivity), style: Theme.of(context).textTheme.bodySmall),
           ?statusChip,

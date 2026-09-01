@@ -10,20 +10,13 @@ Tier tierForElo(int elo) {
   return Tier.rookie;
 }
 
-String tierLabel(Tier tier) {
-  switch (tier) {
-    case Tier.rookie:
-      return 'Rookie';
-    case Tier.rising:
-      return 'Rising';
-    case Tier.baller:
-      return 'Baller';
-    case Tier.pro:
-      return 'Pro';
-    case Tier.elite:
-      return 'Elite';
-  }
-}
+String tierLabel(Tier tier) => switch (tier) {
+  .rookie => 'Rookie',
+  .rising => 'Rising',
+  .baller => 'Baller',
+  .pro => 'Pro',
+  .elite => 'Elite',
+};
 
 class Matchup {
   final String id;
@@ -54,7 +47,7 @@ class Matchup {
     required this.height,
     required this.position,
     DateTime? lastActive,
-  }) : lastActive = lastActive ?? DateTime.now();
+  }) : lastActive = lastActive ?? .now();
 
   Tier get tier => tierForElo(elo);
 

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/data/providers.dart';
 import 'package:hooper/screens/feed_screen.dart';
 import 'package:hooper/screens/inbox_screen.dart';
 import 'package:hooper/screens/leaderboard_screen.dart';
 import 'package:hooper/screens/profile_screen.dart';
-import 'package:hooper/utils.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   int _currPage = 0;
 
   late PageController _pageController;
@@ -20,7 +21,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    setRadius();
     _pageController = PageController(initialPage: _currPage);
   }
 
@@ -30,13 +30,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  void setRadius() async {
-    await Utils.setRadius();
-    setState(() {});
-  }
-
-  Widget _buildBottomBar() {
-    final rad = (Utils.cornerRadius ?? 20) - 12;
+  Widget _buildBottomBar(double rad) {
     final icons = [
       Icons.sports_basketball_rounded,
       Icons.chat_rounded,
@@ -47,7 +41,7 @@ class _HomePageState extends State<HomePage> {
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: ClipRSuperellipse(
-        borderRadius: BorderRadius.circular(rad),
+        borderRadius: .circular(rad),
         child: Container(
           decoration: BoxDecoration(
             color:
@@ -65,14 +59,14 @@ class _HomePageState extends State<HomePage> {
                   child: Container(
                     decoration: ShapeDecoration(
                       color: const Color.fromARGB(134, 212, 212, 212),
-                      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad - 8)),
+                      shape: RoundedSuperellipseBorder(borderRadius: .circular(rad - 8)),
                     ),
                     margin: EdgeInsets.all(8),
                   ),
                 ),
               ),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: .stretch,
                 children: List.generate(4, (index) {
                   final isCurr = _currPage == index;
                   return Expanded(
@@ -96,8 +90,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final cornerRadiusAsync = ref.watch(cornerRadiusProvider);
     return Scaffold(
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildBottomBar(cornerRadiusAsync.hasValue ? cornerRadiusAsync.value! : 20),
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {

@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooper/models/player_profile.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/providers.dart';
@@ -32,7 +32,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
   final displayNameController = TextEditingController();
   final bioController = TextEditingController();
   Set<PlayerPosition> _selectedPosition = {PlayerPosition.forward};
-  SubmitState submitState = SubmitState.no;
+  SubmitState submitState = .no;
   XFile? profileImage;
   XFile? bannerImage;
 
@@ -45,7 +45,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
   }
 
   Future<void> _pickDate() async {
-    final now = DateTime.now();
+    final DateTime now = .now();
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(now.year - kMinimumAge, now.month, now.day),
@@ -55,7 +55,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
     );
     if (picked != null) {
       setState(() {
-        submitState = SubmitState.yes;
+        submitState = .yes;
         _selectedDate = picked;
         _error = null;
       });
@@ -67,20 +67,20 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
   void setErrorCantPush(String error) {
     setState(() {
       _error = error;
-      submitState = SubmitState.no;
+      submitState = .no;
     });
   }
 
   Future<void> _submit() async {
     final date = _selectedDate;
-    setState(() => submitState = SubmitState.verifying);
+    setState(() => submitState = .verifying);
 
     int? height = int.tryParse(heightController.text);
     if (date == null) {
       setErrorCantPush("Please enter an age. ");
       return;
     }
-    if (_ageOn(date, DateTime.now()) < kMinimumAge) {
+    if (_ageOn(date, .now()) < kMinimumAge) {
       setErrorCantPush('You must be $kMinimumAge or older.');
       return;
     }
@@ -97,32 +97,32 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
       return;
     }
 
-    final uniqueAsync = ref.read(isUniqueNameProvider(inputName));
+    final uniqueAsync = ref.read(isNameTakenProvider(inputName));
 
     uniqueAsync.when(
       data: (exists) {
         if (!exists) {
           setState(() {
             _error = "Username already taken. ";
-            submitState = SubmitState.yes;
+            submitState = .yes;
           });
           _pushSubmit(height, date, bioController.text.trim(), inputName);
         } else {
           setState(() {
             _error = '';
-            submitState = SubmitState.no;
+            submitState = .no;
           });
         }
       },
       error: (Object error, StackTrace stackTrace) {
         setState(() {
           _error = "Something went wrong. ";
-          submitState = SubmitState.no;
+          submitState = .no;
         });
       },
       loading: () {
         setState(() {
-          submitState = SubmitState.verifying;
+          submitState = .verifying;
         });
       },
     );
@@ -166,7 +166,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
   }
 
   void _pushSubmit(int height, DateTime date, String bio, String name) async {
-    setState(() => submitState = SubmitState.saving);
+    setState(() => submitState = .saving);
     try {
       final uid = ref.read(currentUserIdProvider);
       await _requestLocation();
@@ -190,7 +190,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          submitState = SubmitState.yes;
+          submitState = .yes;
         });
       }
     }
@@ -210,15 +210,15 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool canEdit = !(submitState == SubmitState.saving || submitState == SubmitState.verifying);
-    final uniqueAsync = ref.watch(isUniqueNameProvider(inputName.length < 5 ? "New Player" : inputName));
+    final bool canEdit = !(submitState == .saving || submitState == .verifying);
+    final uniqueAsync = ref.watch(isNameTakenProvider(inputName.length < 5 ? "New Player" : inputName));
 
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: .center,
+          crossAxisAlignment: .stretch,
           children: [
             const Text("Set up your profile", textAlign: TextAlign.center),
             OutlinedButton(
@@ -243,7 +243,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
               keyboardType: TextInputType.number,
               enabled: canEdit,
               onChanged: (_) => setState(() {
-                submitState = SubmitState.yes;
+                submitState = .yes;
                 _error = '';
               }),
             ),
@@ -281,7 +281,7 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
               enabled: canEdit,
               onChanged: (_) {
                 setState(() {
-                  submitState = SubmitState.yes;
+                  submitState = .yes;
                   _error = '';
                 });
               },
@@ -330,20 +330,12 @@ class _DateOfBirthScreenState extends ConsumerState<ProfileFillScreen> {
             ),
             if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             FilledButton(
-              onPressed: submitState == SubmitState.no ? null : _submit,
+              onPressed: submitState == .no ? null : _submit,
               child: switch (submitState) {
-                SubmitState.yes => Text("Submit"),
-                SubmitState.no => Text("Fix any errors before submitting. "),
-                SubmitState.verifying => const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                SubmitState.saving => const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                .yes => Text("Submit"),
+                .no => Text("Fix any errors before submitting. "),
+                .verifying => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                .saving => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               },
             ),
           ],

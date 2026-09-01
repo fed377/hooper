@@ -7,7 +7,7 @@ import 'package:hooper/data/providers.dart';
 import 'package:hooper/models/match_doc.dart';
 import 'package:hooper/screens/current_playing_screen.dart';
 import 'package:hooper/screens/home_screen.dart';
-import 'package:hooper/widgets/loading_screen_widget.dart';
+import 'package:hooper/core/widgets/loading_screen_widget.dart';
 
 class LockGate extends ConsumerStatefulWidget {
   const LockGate({super.key});
@@ -45,7 +45,7 @@ class _LockGateState extends ConsumerState<LockGate> {
 
         MatchDoc? dueMatch;
         for (final doc in sorted) {
-          if (_shouldScore(doc.status) && !doc.scheduledTime.isAfter(DateTime.now())) {
+          if (_shouldScore(doc.status) && !doc.scheduledTime.isAfter(.now())) {
             dueMatch = doc;
             break;
           }
@@ -58,13 +58,13 @@ class _LockGateState extends ConsumerState<LockGate> {
           return CurrentlyPlayingScreen(matchId: dueMatch.id);
         }
 
-        final upcoming = sorted.where((d) => _shouldScore(d.status) && d.scheduledTime.isAfter(DateTime.now()));
+        final upcoming = sorted.where((d) => _shouldScore(d.status) && d.scheduledTime.isAfter(.now()));
         if (upcoming.isNotEmpty) {
           final next = upcoming.first;
           if (_timerTargetId != next.id) {
             _timer?.cancel();
             _timerTargetId = next.id;
-            _timer = Timer(next.scheduledTime.difference(DateTime.now()), () => ref.invalidate(lockedMatchesProvider));
+            _timer = Timer(next.scheduledTime.difference(.now()), () => ref.invalidate(lockedMatchesProvider));
           }
         } else {
           _timer?.cancel();
@@ -72,10 +72,7 @@ class _LockGateState extends ConsumerState<LockGate> {
         }
 
         if (upcoming.isNotEmpty && (_timer == null || !_timer!.isActive)) {
-          _timer = Timer(
-            upcoming.first.scheduledTime.difference(DateTime.now()),
-            () => ref.invalidate(lockedMatchesProvider),
-          );
+          _timer = Timer(upcoming.first.scheduledTime.difference(.now()), () => ref.invalidate(lockedMatchesProvider));
         }
 
         return const HomePage();
@@ -85,7 +82,7 @@ class _LockGateState extends ConsumerState<LockGate> {
         log(stackTrace.toString());
         return const Scaffold(body: Center(child: Text('Something went wrong.')));
       },
-      loading: () => const FullScreenLoader(),
+      loading: () => const SplashScreen(),
     );
   }
 }

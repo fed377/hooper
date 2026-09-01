@@ -6,10 +6,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hooper/data/fcmservice.dart';
+import 'package:hooper/core/services/fcmservice.dart';
 import 'package:hooper/data/gates/auth_gate.dart';
 import 'package:hooper/firebase_options.dart';
-import 'package:hooper/data/google_auth_service.dart';
+import 'package:hooper/core/services/google_auth_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,16 +33,16 @@ class HooperApp extends StatelessWidget {
       colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 3, 108, 255)),
       textTheme: GoogleFonts.rubikTextTheme(),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+        style: ElevatedButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+        style: FilledButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+        style: TextButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(rad))),
+        style: IconButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
       ),
     );
     return MaterialApp(

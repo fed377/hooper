@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hooper/widgets/loading_screen_widget.dart';
+import 'package:hooper/data/repos/match_repo.dart';
+import 'package:hooper/core/widgets/loading_screen_widget.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../data/providers.dart';
-import '../data/repos/match_repo.dart';
 import '../models/match_doc.dart';
 
 class CurrentlyPlayingScreen extends ConsumerStatefulWidget {
@@ -75,7 +75,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     return Scaffold(
       appBar: AppBar(title: const Text('Match in progress'), automaticallyImplyLeading: false),
       body: matchAsync.when(
-        loading: () => FullScreenLoader(),
+        loading: () => SplashScreen(),
         error: (err, _) => Center(
           child: Padding(padding: const EdgeInsets.all(24), child: Text('Could not load this match: $err')),
         ),
@@ -85,7 +85,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
           } else {
             return Center(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize: .min,
                 children: [
                   Text("Your opponent hasn't shown up. \nPlease wait for them to show up\nor cancel"),
                   const SizedBox(height: 8),
@@ -117,7 +117,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     if (match.status == MatchStatus.scheduled) {
       return const Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: .min,
           children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Starting your match…')],
         ),
       );
@@ -145,10 +145,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.errorContainer, borderRadius: .circular(12)),
             child: const Text("Your scores didn't match. Double-check and submit again.", textAlign: TextAlign.center),
           ),
 
@@ -164,7 +161,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
           const SizedBox(height: 16),
           const Center(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
               children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Waiting for confirmation…')],
             ),
           ),
@@ -185,7 +182,7 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     return Column(
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: .center,
           children: [
             _ScoreStepper(label: 'You', value: _myScore, onChanged: (v) => setState(() => _myScore = v)),
             const SizedBox(width: 24),
@@ -227,12 +224,9 @@ class _SubmissionCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHigh, borderRadius: .circular(12)),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: .start,
         children: [
           Text(title, style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 6),

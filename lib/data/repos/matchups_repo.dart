@@ -3,9 +3,17 @@ import 'dart:developer' show log;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:hooper/data/geohash/geohash.dart';
-import 'package:hooper/data/repos/matchup_repo.dart';
+import 'package:hooper/core/utils/geohash.dart';
 import 'package:hooper/models/matchup.dart';
+
+class ProposalException implements Exception {
+  final String message;
+  final String code;
+  ProposalException(this.code, this.message);
+
+  @override
+  String toString() => 'ProposeMatchException($code): $message';
+}
 
 class ProposalResponse {
   String requestId;
@@ -23,7 +31,7 @@ class MatchupScanError {
   MatchupScanError(this.what);
 }
 
-class FirestoreMatchupRepository implements MatchupRepository {
+class FirestoreMatchupRepository {
   FirestoreMatchupRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _functions = functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
@@ -31,7 +39,6 @@ class FirestoreMatchupRepository implements MatchupRepository {
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
 
-  @override
   Stream<List<Matchup>> nearbyMatchups({
     required GeoPoint? center,
     required double radiusKm,
@@ -115,7 +122,7 @@ class FirestoreMatchupRepository implements MatchupRepository {
             .orderBy('geohash')
             .startAt([cell])
             .endAt(['$cell~'])
-            .where(FieldPath.documentId)
+            .where('accountStatus', isEqualTo: 'active')
             .snapshots()
             .listen((snap) {
               perCellDocs[cellIndex] = {for (final d in snap.docs) d.id: d.data()};
@@ -135,23 +142,25 @@ class FirestoreMatchupRepository implements MatchupRepository {
     return controller.stream;
   }
 
-  @override
   Future<ProposalResponse> proposeMatch({
     required String court,
     required String targetId,
     required DateTime scheduledTime,
+    required GeoPoint location,
   }) async {
     try {
       final result = await _functions.httpsCallable('proposeMatch').call({
         'targetId': targetId,
         'court': court,
-        'scheduledTime': scheduledTime.toIso8601String(),
+        'scheduledTime': scheduledTime.toUtc().toIso8601String(),
+        'latitude': location.latitude,
+        'longitude': location.longitude,
       });
 
       final data = Map<String, dynamic>.from(result.data as Map);
       return ProposalResponse.fromJson(data);
     } on FirebaseFunctionsException catch (e) {
-      throw ProposeMatchException(e.code, e.message ?? 'Could not send challenge. Try again.');
+      throw ProposalException(e.code, e.message ?? 'Could not send challenge. Try again.');
     }
   }
 }

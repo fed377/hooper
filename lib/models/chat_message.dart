@@ -29,7 +29,7 @@ class ChatMessage {
   }
 
   factory ChatMessage.dummy({bool isSystem = false, String senderId = 'other', int words = 5}) {
-    return ChatMessage(id: senderId, text: BoneMock.words(words), isSystem: isSystem, createdAt: DateTime.now());
+    return ChatMessage(id: senderId, text: BoneMock.words(words), isSystem: isSystem, createdAt: .now());
   }
 
   static List<ChatMessage> dummyList(String uid) {

@@ -48,8 +48,8 @@ class FirestorePreferencesRepository {
         return AlertDialog(
           title: Text("Report $targetName"),
           content: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: .stretch,
+            mainAxisSize: .min,
             children: [
               TextField(onChanged: (text) => reason = text),
               if (matchId != null)
@@ -64,7 +64,7 @@ class FirestorePreferencesRepository {
           ),
           actions: [
             Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
               children: [
                 Row(
                   children: [

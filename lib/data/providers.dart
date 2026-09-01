@@ -2,44 +2,108 @@ import 'dart:developer' show log;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hooper/data/repos/firestore_leaderboard_repo.dart';
-import 'package:hooper/data/repos/firestore_profiles_repo.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hooper/data/repos/leaderboard_repo.dart';
+import 'package:hooper/data/repos/profile_repo.dart';
 import 'package:hooper/data/repos/preferences_repo.dart';
-import 'package:hooper/data/repos/profiles_repo.dart';
+import 'package:hooper/features/auth/data/app_auth_state.dart';
 import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/chat_message.dart';
 import 'package:hooper/models/match_request_doc.dart';
 import 'package:hooper/models/player_profile.dart';
 import 'package:hooper/models/user_preferences.dart';
+import 'package:screen_corner_radius/screen_corner_radius.dart';
 
 import '../models/match_doc.dart';
 import '../models/matchup.dart';
-import 'repos/firestore_match_repo.dart';
-import 'repos/firestore_matchups.dart';
 import 'repos/match_repo.dart';
-import 'repos/matchup_repo.dart';
+import 'repos/matchups_repo.dart';
+
+typedef SString = (String, String);
+
+// --- UI Data ----------------------------------------------------
+
+final cornerRadiusProvider = FutureProvider<double>((ref) async {
+  final rad = await ScreenCornerRadius.get();
+  return rad?.bottomRight ?? 20;
+});
+
+final mapStyleProvider = FutureProvider<String>((ref) async {
+  return await rootBundle.loadString('assets/map_style.json');
+});
 
 // --- Auth -------------------------------------------------------------
 
-final authStateProvider = StreamProvider<User?>((ref) {
+final appAuthStateProvider = FutureProvider<AppAuthState>((ref) async {
+  final user = await ref.watch(_authStateProvider.future);
+  if (user == null) {
+    return AppAuthState(status: AuthStatus.unauthenticated);
+  }
+
+  final isVerified = await ref.watch(_userVerifiedProvider.future);
+  if (!isVerified) {
+    return AppAuthState(status: AuthStatus.unverified, user: user);
+  }
+
+  final statusInfo = await ref.watch(_myAccountStatusProvider(user.uid).future);
+  if (statusInfo.status != 'active') {
+    return AppAuthState(
+      status: AuthStatus.restricted,
+      user: user,
+      restrictionReason: statusInfo.reason,
+      accountStatus: statusInfo.status,
+    );
+  }
+
+  final profileExists = await ref.watch(profileExistsProvider(user.uid).future);
+  if (!profileExists) {
+    return AppAuthState(status: AuthStatus.needsProfileFill, user: user);
+  }
+
+  final birthDate = await ref.watch(_myDateOfBirthProvider(user.uid).future);
+  if (birthDate == null) {
+    return AppAuthState(status: AuthStatus.needsProfileFill, user: user);
+  }
+
+  return AppAuthState(status: AuthStatus.authenticated, user: user);
+});
+
+final _authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
 
 final currentUserIdProvider = Provider<String>((ref) {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(_authStateProvider).value;
   if (user == null) {
     throw StateError('currentUserIdProvider read before sign-in.');
   }
   return user.uid;
 });
 
+final _userVerifiedProvider = FutureProvider<bool>((ref) async {
+  User? user = FirebaseAuth.instance.currentUser;
+  await user?.reload();
+  return FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+});
+
+class AccountStatusInfo({required var String status, required var String? reason});
+
+final _myAccountStatusProvider = StreamProvider.family<AccountStatusInfo, String>((ref, uid) {
+  return FirebaseFirestore.instance.collection('users').doc(uid).snapshots().map((snap) {
+    final data = snap.data();
+    return AccountStatusInfo(status: data?['status'] as String? ?? 'active', reason: data?['statusReason'] as String?);
+  });
+});
+
+// --- User Data --------------------------------------------------------
+
 final profileExistsProvider = StreamProvider.autoDispose.family<bool, String>((ref, uid) {
   return FirebaseFirestore.instance.collection('playerProfiles').doc(uid).snapshots().map((snap) => snap.exists);
 });
 
-final isUniqueNameProvider = StreamProvider.autoDispose.family<bool, String>((ref, name) {
+final isNameTakenProvider = StreamProvider.autoDispose.family<bool, String>((ref, name) {
   return FirebaseFirestore.instance.collection('usernames').doc(name).snapshots().map((snap) => snap.exists);
 });
 
@@ -57,7 +121,7 @@ final lastMessageIdRead = FutureProvider.autoDispose.family<String?, SString>((r
   return map?[userId];
 });
 
-final myDateOfBirthProvider = StreamProvider.autoDispose.family<DateTime?, String>((ref, uid) {
+final _myDateOfBirthProvider = StreamProvider.autoDispose.family<DateTime?, String>((ref, uid) {
   return FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
@@ -65,17 +129,25 @@ final myDateOfBirthProvider = StreamProvider.autoDispose.family<DateTime?, Strin
       .map((snap) => (snap.data()?['dateOfBirth'] as Timestamp?)?.toDate());
 });
 
+// --- Geohash Related ----------------------------------------------------
+
+final myLocationProvider = FutureProvider<Position>((ref) async {
+  return await Geolocator.getCurrentPosition();
+});
+
 // --- Repositories -------------------------------------------------------
 
-final matchupRepositoryProvider = Provider<MatchupRepository>((ref) => FirestoreMatchupRepository());
+final matchupRepositoryProvider = Provider<FirestoreMatchupRepository>((ref) => FirestoreMatchupRepository());
 
-final matchRepositoryProvider = Provider<MatchRepository>((ref) => FirestoreMatchRepository());
+final matchRepositoryProvider = Provider<FirestoreMatchRepository>((ref) => FirestoreMatchRepository());
 
-final playerProfileRepositoryProvider = Provider<PlayerProfileRepository>((ref) => FirestorePlayerProfileRepository());
+final playerProfileRepositoryProvider = Provider<FirestorePlayerProfileRepository>(
+  (ref) => FirestorePlayerProfileRepository(),
+);
 
 final preferencesRepoProvider = Provider<FirestorePreferencesRepository>((ref) => FirestorePreferencesRepository());
 
-final leaderboardRepoProvider = Provider<LeaderboardRepository>((ref) => FirestoreLeaderboardRepository());
+final leaderboardRepoProvider = Provider<FirestoreLeaderboardRepository>((ref) => FirestoreLeaderboardRepository());
 
 // --- Preferences --------------------------------------------------------
 
@@ -155,8 +227,6 @@ final matchupFromIdProvider = FutureProvider.autoDispose.family<Matchup, String>
   final snap = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   return Matchup.fromJson({...snap.data()!, 'id': snap.id, 'distanceKm': 100});
 });
-
-typedef SString = (String, String);
 
 class MatchOpponent {
   final MatchDoc match;

@@ -1,19 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum MatchRequestStatus { pending, accepted, declined, expired, withdrawn, finished }
 
 MatchRequestStatus matchRequestStatusFromString(String value) {
   switch (value) {
     case 'pending':
-      return MatchRequestStatus.pending;
+      return .pending;
     case 'accepted':
-      return MatchRequestStatus.accepted;
+      return .accepted;
     case 'declined':
-      return MatchRequestStatus.declined;
+      return .declined;
     case 'expired':
-      return MatchRequestStatus.expired;
+      return .expired;
     case 'withdrawn':
-      return MatchRequestStatus.withdrawn;
+      return .withdrawn;
     case 'finished':
-      return MatchRequestStatus.finished;
+      return .finished;
     default:
       throw ArgumentError('Unknown match request status: $value');
   }
@@ -30,6 +32,7 @@ class MatchRequestDoc {
   final String? matchId; // set once accepted
   final String chatId;
   final DateTime createdAt;
+  final GeoPoint location;
 
   MatchRequestDoc({
     required this.id,
@@ -42,6 +45,7 @@ class MatchRequestDoc {
     this.matchId,
     required this.chatId,
     required this.createdAt,
+    required this.location,
   });
 
   factory MatchRequestDoc.fromJson(Map<String, dynamic> json) {
@@ -56,6 +60,7 @@ class MatchRequestDoc {
       matchId: json['matchId'] as String?,
       chatId: json['chatId'] as String,
       createdAt: json['createdAt'] as DateTime,
+      location: (json['location'] as GeoPoint?) ?? GeoPoint(0, 0),
     );
   }
 
@@ -69,7 +74,8 @@ class MatchRequestDoc {
       scheduledTime: DateTime(3000),
       status: MatchRequestStatus.accepted,
       chatId: '',
-      createdAt: DateTime.now(),
+      createdAt: .now(),
+      location: GeoPoint(0, 0),
     );
   }
 

@@ -2,23 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum PlayerPosition { guard, forward, center }
 
-PlayerPosition? playerPositionFromInt(int value) {
-  switch (value) {
-    case 1:
-      return PlayerPosition.guard;
-    case 2:
-      return PlayerPosition.forward;
-    case 3:
-      return PlayerPosition.center;
-    default:
-      return null;
-  }
-}
+PlayerPosition? playerPositionFromInt(int value) => switch (value) {
+  1 => .guard,
+  2 => .forward,
+  3 => .center,
+  int() => null,
+};
 
 int playerPositionToInt(PlayerPosition? position) {
-  if (position == PlayerPosition.guard) return 1;
-  if (position == PlayerPosition.forward) return 2;
-  if (position == PlayerPosition.center) return 3;
+  if (position == .guard) return 1;
+  if (position == .forward) return 2;
+  if (position == .center) return 3;
   return 0;
 }
 

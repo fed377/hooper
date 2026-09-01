@@ -4,7 +4,7 @@ import 'package:hooper/models/chat.dart';
 import 'package:hooper/models/matchup.dart';
 import 'package:hooper/screens/chat_screen.dart';
 import 'package:hooper/screens/propose_screen.dart';
-import 'package:hooper/widgets/skeleton_widget.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
 
 import '../../data/providers.dart';
 import '../../widgets/matchup_card.dart';
@@ -41,7 +41,7 @@ class MatchupFeedScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: .min,
                   children: [
                     const Icon(Icons.sports_basketball_outlined, size: 48),
                     const SizedBox(height: 12),
