@@ -4,21 +4,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:hooper/features/leaderboard/data/leaderboard_repo.dart';
-import 'package:hooper/features/profile/data/preferences_repo.dart';
-import 'package:hooper/features/profile/data/profile_repo.dart';
 import 'package:hooper/features/auth/providers/auth_state_provider.dart';
 import 'package:hooper/features/chat/data/chat.dart';
 import 'package:hooper/features/chat/data/chat_message.dart';
-import 'package:hooper/features/requests/data/match_request_doc.dart';
+import 'package:hooper/features/leaderboard/data/leaderboard_repo.dart';
 import 'package:hooper/features/profile/data/player_profile.dart';
+import 'package:hooper/features/profile/data/preferences_repo.dart';
+import 'package:hooper/features/profile/data/profile_repo.dart';
 import 'package:hooper/features/profile/data/user_preferences.dart';
+import 'package:hooper/features/requests/data/match_request_doc.dart';
 import 'package:screen_corner_radius/screen_corner_radius.dart';
 
-import '../../features/matches/data/match_doc.dart';
 import '../../features/discovery/data/matchup.dart';
-import '../../features/matches/data/match_repo.dart';
 import '../../features/discovery/data/matchups_repo.dart';
+import '../../features/matches/data/match_doc.dart';
+import '../../features/matches/data/match_repo.dart';
 
 typedef SString = (String, String);
 

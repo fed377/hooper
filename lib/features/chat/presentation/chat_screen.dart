@@ -1,16 +1,19 @@
 import 'dart:developer' show log;
+import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:hooper/core/widgets/loading_screen_widget.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:hooper/features/chat/data/chat.dart';
 import 'package:hooper/features/chat/data/chat_message.dart';
+import 'package:hooper/features/location/presentation/location_picker.dart';
 import 'package:hooper/features/matches/data/match_repo.dart';
 import 'package:hooper/features/requests/data/match_request_doc.dart';
 import 'package:hooper/features/requests/presentation/propose_screen.dart';
-import 'package:hooper/features/location/presentation/location_picker.dart';
 import 'package:map_launcher/map_launcher.dart';
 
 import '../../../core/services/providers.dart';
@@ -125,7 +128,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           log(st.toString());
           return Center(child: Text('Could not load this chat: $err'));
         },
-        data: (chat) => _buildBody(chat, uid, chat.otherParticipant(uid)),
+        data: (chat) {
+          final otherId = chat.otherParticipant(uid);
+          final bannerAsync = ref.watch(playerBannerUrlProvider(otherId));
+          return Stack(
+            children: [
+              SizedBox.expand(
+                child: bannerAsync.maybeWhen(
+                  data: (data) => data.isEmpty
+                      ? const SizedBox()
+                      : ImageFiltered(
+                          imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: .mirror),
+                          child: Image(image: CachedNetworkImageProvider(data), fit: .cover),
+                        ),
+                  orElse: () => const SizedBox(),
+                ),
+              ),
+              SizedBox.expand(child: _buildBody(chat, uid, chat.otherParticipant(uid))),
+            ],
+          );
+        },
       ),
     );
   }
@@ -139,20 +161,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Stack(
             children: [
               SizedBox.expand(child: _buildChat(uid, otherId)),
-              SizedBox.expand(
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.white, const Color.fromARGB(0, 255, 255, 255)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: [0, 0.3],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              // SizedBox.expand(
+              //   child: IgnorePointer(
+              //     child: Container(
+              //       decoration: BoxDecoration(
+              //         gradient: LinearGradient(
+              //           colors: [const Color.fromARGB(255, 0, 0, 0), const Color.fromARGB(0, 255, 255, 255)],
+              //           begin: Alignment.topCenter,
+              //           end: Alignment.bottomCenter,
+              //           stops: [0, 0.3],
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ),
               if (requestId != null) _buildDetailsSection(requestId),
             ],
           ),
@@ -238,20 +260,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.only(left: 8, right: 8),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText: _sendingMessage ? 'Sending...' : 'Message…',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                  decoration: InputDecoration(hintText: _sendingMessage ? 'Sending...' : 'Message…', isDense: true),
                   onSubmitted: (_) => _sendingMessage ? null : _send(),
                 ),
               ),
+              const SizedBox(width: 12),
               IconButton(icon: const Icon(Icons.send), onPressed: _sendingMessage ? null : _send),
             ],
           ),
@@ -297,7 +316,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             children: [
               if (isInitiator)
                 Expanded(
-                  child: OutlinedButton(
+                  child: FilledButton(
                     onPressed: _busy ? null : () => _runAction(() => repo.cancelRequest(requestId)),
                     child: const Text('Cancel request'),
                   ),
@@ -451,8 +470,9 @@ class _DetailsWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (canEdit) IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined)),
-                IconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded)),
+                if (canEdit) DarkIconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), shadow: false),
+                const SizedBox(width: 12),
+                DarkIconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded), shadow: false),
               ],
             ),
     );

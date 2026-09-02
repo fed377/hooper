@@ -33,6 +33,8 @@ class MatchRequestDoc {
   final String chatId;
   final DateTime createdAt;
   final GeoPoint location;
+  final bool private;
+  final bool friendly;
 
   MatchRequestDoc({
     required this.id,
@@ -46,6 +48,8 @@ class MatchRequestDoc {
     required this.chatId,
     required this.createdAt,
     required this.location,
+    required this.private,
+    required this.friendly,
   });
 
   factory MatchRequestDoc.fromJson(Map<String, dynamic> json) {
@@ -61,6 +65,8 @@ class MatchRequestDoc {
       chatId: json['chatId'] as String,
       createdAt: json['createdAt'] as DateTime,
       location: (json['location'] as GeoPoint?) ?? GeoPoint(0, 0),
+      private: (json['private'] ?? false) as bool,
+      friendly: (json['friendly'] ?? false) as bool,
     );
   }
 
@@ -76,6 +82,8 @@ class MatchRequestDoc {
       chatId: '',
       createdAt: .now(),
       location: GeoPoint(0, 0),
+      private: false,
+      friendly: false,
     );
   }
 

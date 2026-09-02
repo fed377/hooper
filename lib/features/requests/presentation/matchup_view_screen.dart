@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:hooper/core/services/providers.dart';
-import 'package:hooper/features/chat/data/chat.dart';
-import 'package:hooper/features/matches/data/match_doc.dart';
-import 'package:hooper/features/discovery/data/matchup.dart';
-import 'package:hooper/features/chat/presentation/chat_screen.dart';
 import 'package:hooper/core/widgets/elo_rank_chip.dart';
+import 'package:hooper/core/widgets/skeleton_widget.dart';
+import 'package:hooper/features/chat/data/chat.dart';
+import 'package:hooper/features/chat/presentation/chat_screen.dart';
+import 'package:hooper/features/discovery/data/matchup.dart';
+import 'package:hooper/features/matches/data/match_doc.dart';
 import 'package:hooper/features/matches/presentation/match_list_tile.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
@@ -150,9 +149,9 @@ class MatchupViewScreen extends ConsumerWidget {
                         shape: RoundedSuperellipseBorder(borderRadius: .circular(32)),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                        padding: const .symmetric(vertical: 16, horizontal: 14),
                         child: OverflowBox(
-                          fit: OverflowBoxFit.deferToChild,
+                          fit: .deferToChild,
                           child: Column(
                             mainAxisSize: .min,
                             mainAxisAlignment: .end,

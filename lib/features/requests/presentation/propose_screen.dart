@@ -36,6 +36,8 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
   DateTime? _selectedTime;
   bool _sending = false;
   LocationPickerController locationController = LocationPickerController(point: GeoPoint(0, 0));
+  bool _private = false;
+  bool _friendly = false;
 
   Future<void> _pickTime() async {
     final date = await showDatePicker(
@@ -64,6 +66,8 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
         court: court,
         scheduledTime: _selectedTime!,
         location: GeoPoint(locationController.point.latitude, locationController.point.longitude),
+        friendly: _friendly, 
+        private: _private,
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ChatScreen(chatId: response.chatId)));
@@ -123,6 +127,7 @@ class _ProposeMatchScreenState extends ConsumerState<ProposeMatchScreen> {
             speedAccuracy: 0,
           ),
         ),
+        
         const SizedBox(height: 24),
         Text('When?', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),

@@ -16,11 +16,6 @@ class EloRankChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = _labelAndColor(context);
-    return Chip(
-      shape: RoundedSuperellipseBorder(borderRadius: .circular(12)),
-      label: Text(label),
-      labelStyle: color != null ? TextStyle(color: color) : null,
-      visualDensity: VisualDensity.compact,
-    );
+    return Text(label, style: color != null ? TextStyle(color: color) : null);
   }
 }

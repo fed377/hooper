@@ -1,8 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/core/services/providers.dart';
-import 'package:hooper/features/discovery/presentation/feed_screen.dart';
 import 'package:hooper/features/chat/presentation/inbox_screen.dart';
+import 'package:hooper/features/discovery/presentation/feed_screen.dart';
 import 'package:hooper/features/leaderboard/presentation/leaderboard_screen.dart';
 import 'package:hooper/features/profile/presentation/profile_screen.dart';
 
@@ -42,46 +44,49 @@ class _HomePageState extends ConsumerState<HomePage> {
       padding: const EdgeInsets.all(12.0),
       child: ClipRSuperellipse(
         borderRadius: .circular(rad),
-        child: Container(
-          decoration: BoxDecoration(
-            color:
-                Theme.of(context).navigationBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surfaceContainer,
-          ),
-          height: 64,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedAlign(
-                alignment: FractionalOffset((_currPage) / 3, 0),
-                duration: Durations.medium1,
-                child: FractionallySizedBox(
-                  widthFactor: 0.25,
-                  child: Container(
-                    decoration: ShapeDecoration(
-                      color: const Color.fromARGB(134, 212, 212, 212),
-                      shape: RoundedSuperellipseBorder(borderRadius: .circular(rad - 8)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(153, 255, 255, 255),
+              //Theme.of(context).navigationBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surfaceContainer,
+            ),
+            height: 64,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedAlign(
+                  alignment: FractionalOffset((_currPage) / 3, 0),
+                  duration: Durations.medium1,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.25,
+                    child: Container(
+                      decoration: ShapeDecoration(
+                        color: const Color.fromARGB(34, 0, 0, 0),
+                        shape: RoundedSuperellipseBorder(borderRadius: .circular(rad - 8)),
+                      ),
+                      margin: EdgeInsets.all(8),
                     ),
-                    margin: EdgeInsets.all(8),
                   ),
                 ),
-              ),
-              Row(
-                crossAxisAlignment: .stretch,
-                children: List.generate(4, (index) {
-                  final isCurr = _currPage == index;
-                  return Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onDestination(index),
-                      child: SizedBox(
-                        width: (MediaQuery.of(context).size.width - 24) / 4,
-                        child: Icon(icons[index], size: 26, color: isCurr ? Colors.black : Colors.grey),
+                Row(
+                  crossAxisAlignment: .stretch,
+                  children: List.generate(4, (index) {
+                    final isCurr = _currPage == index;
+                    return Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onDestination(index),
+                        child: SizedBox(
+                          width: (MediaQuery.of(context).size.width - 24) / 4,
+                          child: Icon(icons[index], size: 26, color: isCurr ? Colors.black : Colors.grey),
+                        ),
                       ),
-                    ),
-                  );
-                }),
-              ),
-            ],
+                    );
+                  }),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -92,6 +97,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final cornerRadiusAsync = ref.watch(cornerRadiusProvider);
     return Scaffold(
+      extendBody: true,
       bottomNavigationBar: _buildBottomBar(cornerRadiusAsync.hasValue ? cornerRadiusAsync.value! : 20),
       body: PageView(
         controller: _pageController,

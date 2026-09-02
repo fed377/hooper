@@ -22,6 +22,7 @@ dependencies:
   google_fonts: ^8.2.1
   google_maps_flutter: ^2.18.0
   google_sign_in: ^7.2.0
+  grain: ^0.0.1
   image_picker: ^1.2.1
   intl: ^0.20.3
   map_launcher: ^6.0.0
@@ -38,6 +39,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/map_style.json
+    - assets/google_sans_flex.ttf
 
 linter:
   rules:

@@ -51,6 +51,8 @@ export const acceptRequest = onCall(async (request) => {
       scoreSubmissions: {},
       createdAt: FieldValue.serverTimestamp(),
       requestId: matchRequestId,
+      friendly: req.friendly,
+      priv: req.priv,
     });
 
     tx.update(requestRef, { status: "accepted", matchId: matchRef.id });

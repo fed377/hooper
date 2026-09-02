@@ -3,8 +3,8 @@ import 'dart:developer' show log;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:hooper/features/location/data/geohash.dart';
 import 'package:hooper/features/discovery/data/matchup.dart';
+import 'package:hooper/features/location/data/geohash.dart';
 
 class ProposalException implements Exception {
   final String message;
@@ -84,11 +84,11 @@ class FirestoreMatchupRepository {
       for (final entry in merged.entries) {
         if (entry.key == excludeUserId) continue;
         if (restrictedUserIds.contains(entry.key)) continue;
-
+        log('emit');
         final data = entry.value;
         final homeLocation = data['homeLocation'] as GeoPoint?;
         final status = data['status'] as String? ?? "active";
-        if (status == 'banned') continue;
+        if (status != 'active') continue;
         if (homeLocation == null) continue;
 
         final distanceKm =
@@ -101,7 +101,10 @@ class FirestoreMatchupRepository {
                     ))
                 .round() /
             100;
-        if (distanceKm > radiusKm) continue;
+        if (distanceKm > radiusKm) {
+          log(entry.key);
+          continue;
+        }
 
         results.add(Matchup.fromJson({...data, 'id': entry.key, 'distanceKm': distanceKm}));
       }
@@ -122,7 +125,7 @@ class FirestoreMatchupRepository {
             .orderBy('geohash')
             .startAt([cell])
             .endAt(['$cell~'])
-            .where('accountStatus', isEqualTo: 'active')
+            // .where('status', isEqualTo: 'active')
             .snapshots()
             .listen((snap) {
               perCellDocs[cellIndex] = {for (final d in snap.docs) d.id: d.data()};
@@ -146,6 +149,8 @@ class FirestoreMatchupRepository {
     required String court,
     required String targetId,
     required DateTime scheduledTime,
+    required bool private,
+    required bool friendly,
     required GeoPoint location,
   }) async {
     try {
@@ -155,6 +160,8 @@ class FirestoreMatchupRepository {
         'scheduledTime': scheduledTime.toUtc().toIso8601String(),
         'latitude': location.latitude,
         'longitude': location.longitude,
+        'friendly': friendly,
+        'priv': private,
       });
 
       final data = Map<String, dynamic>.from(result.data as Map);

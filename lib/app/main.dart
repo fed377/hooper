@@ -5,10 +5,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:hooper/core/services/fcmservice.dart';
-import 'package:hooper/app/gates/auth_gate.dart';
 import 'package:hooper/app/firebase_options.dart';
+import 'package:hooper/app/gates/auth_gate.dart';
+import 'package:hooper/core/services/fcmservice.dart';
 import 'package:hooper/core/services/google_auth_service.dart';
 
 Future<void> main() async {
@@ -30,19 +29,46 @@ class HooperApp extends StatelessWidget {
   Widget build(BuildContext context) {
     double rad = 24;
     final theme = ThemeData(
+      fontFamily: 'Google Sans Flex',
       colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 3, 108, 255)),
-      textTheme: GoogleFonts.rubikTextTheme(),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
       ),
+      inputDecorationTheme: InputDecorationThemeData(
+        filled: true,
+        fillColor: const Color.fromARGB(107, 255, 255, 255),
+        border: ShapedInputBorder(
+          shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
+          borderSide: .none,
+        ),
+      ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
+        style: FilledButton.styleFrom(
+          padding: EdgeInsets.only(top: 16, bottom: 16, right: 24, left: 24),
+          shape: RoundedSuperellipseBorder(borderRadius: .circular(50)),
+          backgroundColor: const Color.fromARGB(224, 255, 255, 255),
+          foregroundColor: Colors.black,
+          backgroundBuilder: (context, states, child) {
+            return Container(
+              decoration: ShapeDecoration(
+                shape: RoundedSuperellipseBorder(borderRadius: .circular(50)),
+                color: Colors.white,
+              ),
+              child: child,
+            );
+          },
+        ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
+        style: FilledButton.styleFrom(
+          padding: .all(12),
+          shape: CircleBorder(),
+          backgroundColor: const Color.fromARGB(224, 255, 255, 255),
+          foregroundColor: Colors.black,
+        ),
       ),
     );
     return MaterialApp(

@@ -4,17 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/core/services/providers.dart';
 import 'package:hooper/features/auth/data/app_auth_state.dart';
 
+final authStateProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});
+
 final appAuthStateProvider = FutureProvider<AppAuthState>((ref) async {
-  final user = await ref.watch(authStateProvider.future);
+  // 1. Auth state stream
+  final user = ref.watch(authStateProvider).value;
   if (user == null) {
     return AppAuthState(status: AuthStatus.unauthenticated);
   }
 
+  // 2. Email verification
   final isVerified = await ref.watch(_userVerifiedProvider.future);
   if (!isVerified) {
     return AppAuthState(status: AuthStatus.unverified, user: user);
   }
 
+  // 3. Live Account Status check (Firestore Stream)
   final statusInfo = await ref.watch(_myAccountStatusProvider(user.uid).future);
   if (statusInfo.status != 'active') {
     return AppAuthState(
@@ -36,10 +43,6 @@ final appAuthStateProvider = FutureProvider<AppAuthState>((ref) async {
   }
 
   return AppAuthState(status: AuthStatus.authenticated, user: user);
-});
-
-final authStateProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges();
 });
 
 final _userVerifiedProvider = FutureProvider<bool>((ref) async {

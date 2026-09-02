@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' show log;
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -32,12 +33,23 @@ class GoogleAuthService {
 
     _initialized = true;
     if (FirebaseAuth.instance.currentUser == null) {
-      unawaited(GoogleSignIn.instance.attemptLightweightAuthentication());
+      try {
+        unawaited(GoogleSignIn.instance.attemptLightweightAuthentication());
+      } on GoogleSignInException catch (e) {
+        log(e.toString());
+      }
     }
   }
 
   Future<UserCredential> signIn() async {
-    final googleUser = await GoogleSignIn.instance.authenticate();
+    late GoogleSignInAccount googleUser;
+    try {
+      googleUser = await GoogleSignIn.instance.authenticate();
+    } on GoogleSignInException catch (e) {
+      log(e.code.toString());
+      throw StateError(e.description.toString());
+    }
+
     final idToken = googleUser.authentication.idToken;
     if (idToken == null) {
       throw StateError('Google did not return an ID token.');

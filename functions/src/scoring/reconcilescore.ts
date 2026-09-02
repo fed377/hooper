@@ -31,6 +31,8 @@ export const reconcileScore = onDocumentUpdated(
     const scoreB = submission.A.scoreB;
     const aWon = scoreA > scoreB;
     const pointDiff = Math.abs(scoreA - scoreB);
+    const privateMatch: boolean = after.priv as boolean;
+    const friendlyMatch: boolean = after.friendly as boolean;
 
     await db.runTransaction(async (tx) => {
       const freshSnap = await tx.get(matchRef);
@@ -71,43 +73,48 @@ export const reconcileScore = onDocumentUpdated(
         scoreA,
         scoreB,
         confirmedAt: FieldValue.serverTimestamp(),
-        eloDeltaA: aResult.delta,
-        eloDeltaB: bResult.delta,
+        eloDeltaA: friendlyMatch ? 0 : aResult.delta,
+        eloDeltaB: friendlyMatch ? 0 : bResult.delta,
       });
 
       tx.update(reqRef, { status: "finished" });
 
       tx.update(sideARef, {
-        elo: aResult.newRating,
+        elo: friendlyMatch ? aData.elo : aResult.newRating,
         gamesPlayed1v1: FieldValue.increment(1),
-        recentForm: aFormUpdated,
+        recentForm: friendlyMatch ? aRecentForm: aFormUpdated,
         lockedMatchIds: FieldValue.arrayRemove(event.params.matchId),
-        completedMatches: FieldValue.arrayUnion(event.params.matchId),
+        completedMatches: FieldValue.arrayUnion(
+          privateMatch ? null : event.params.matchId,
+        ),
       });
       tx.update(sideBRef, {
         elo: bResult.newRating,
         gamesPlayed1v1: FieldValue.increment(1),
-        recentForm: bFormUpdated,
+        recentForm: friendlyMatch ? bRecentForm : bFormUpdated,
         lockedMatchIds: FieldValue.arrayRemove(event.params.matchId),
-        completedMatches: FieldValue.arrayUnion(event.params.matchId),
+        completedMatches: FieldValue.arrayUnion(
+          privateMatch ? null : event.params.matchId,
+        ),
       });
-
-      tx.set(matchRef.collection("eloHistory").doc(), {
-        playerId: after.sideAId,
-        matchId: event.params.matchId,
-        ratingBefore: aData.elo,
-        ratingAfter: aResult.newRating,
-        delta: aResult.delta,
-        timestamp: FieldValue.serverTimestamp(),
-      });
-      tx.set(matchRef.collection("eloHistory").doc(), {
-        playerId: after.sideBId,
-        matchId: event.params.matchId,
-        ratingBefore: bData.elo,
-        ratingAfter: bResult.newRating,
-        delta: bResult.delta,
-        timestamp: FieldValue.serverTimestamp(),
-      });
+      if (!friendlyMatch) {
+        tx.set(matchRef.collection("eloHistory").doc(), {
+          playerId: after.sideAId,
+          matchId: event.params.matchId,
+          ratingBefore: aData.elo,
+          ratingAfter: aResult.newRating,
+          delta: aResult.delta,
+          timestamp: FieldValue.serverTimestamp(),
+        });
+        tx.set(matchRef.collection("eloHistory").doc(), {
+          playerId: after.sideBId,
+          matchId: event.params.matchId,
+          ratingBefore: bData.elo,
+          ratingAfter: bResult.newRating,
+          delta: bResult.delta,
+          timestamp: FieldValue.serverTimestamp(),
+        });
+      }
     });
   },
 );

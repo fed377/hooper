@@ -13,6 +13,8 @@ interface ProposeMatchRequest {
   scheduledTime: string; // ISO 8601
   latitude: number;
   longitude: number;
+  priv: boolean;
+  friendly: boolean;
 }
 
 export const proposeMatch = onCall(async (request) => {
@@ -21,7 +23,7 @@ export const proposeMatch = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  const { targetId, court, scheduledTime, latitude, longitude } =
+  const { targetId, court, scheduledTime, latitude, longitude, priv, friendly } =
     request.data as ProposeMatchRequest;
 
   if (!targetId || !court.trim() || !scheduledTime || !latitude || !longitude) {
@@ -108,6 +110,8 @@ export const proposeMatch = onCall(async (request) => {
       chatId: chatId,
       createdAt: FieldValue.serverTimestamp(),
       location: new GeoPoint(latitude, longitude),
+      priv: priv,
+      friendly: friendly,
     });
 
     tx.update(chatRef, { lastMatchRequestId: matchRequestRef.id });
