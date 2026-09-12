@@ -1,7 +1,9 @@
 import 'dart:developer' show log;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooper/features/auth/providers/auth_state_provider.dart';
@@ -33,6 +35,10 @@ final mapStyleProvider = FutureProvider<String>((ref) async {
   return await rootBundle.loadString('assets/map_style.json');
 });
 
+final backgroundImageProvider = Provider<ImageProvider>((ref) {
+  return AssetImage('assets/img/blur_img.png');
+});
+
 // --- User Data --------------------------------------------------------
 
 final profileExistsProvider = StreamProvider.autoDispose.family<bool, String>((ref, uid) {
@@ -43,7 +49,7 @@ final isNameTakenProvider = StreamProvider.autoDispose.family<bool, String>((ref
   return FirebaseFirestore.instance.collection('usernames').doc(name).snapshots().map((snap) => snap.exists);
 });
 
-final completedMatchesProvider = FutureProvider.autoDispose.family<List<String>, String>((ref, uid) async {
+final completedMatchesProvider = FutureProvider.family<List<String>, String>((ref, uid) async {
   final x = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   return (x.data()?['completedMatches'] as List?)?.cast<String>() ?? [];
 });
@@ -108,6 +114,15 @@ final playerBannerUrlProvider = FutureProvider.autoDispose.family<String, String
   return doc.data()?['bannerUrl'] as String? ?? '';
 });
 
+final playerEloProvider = FutureProvider.autoDispose.family<int, String>((ref, uid) async {
+  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
+  return doc.data()?['elo'] as int? ?? 0;
+});
+
+final imageProviderFamily = Provider.family<ImageProvider, String>((ref, imageUrl) {
+  return CachedNetworkImageProvider(imageUrl);
+});
+
 final playerDiscoverRadiusProvider = FutureProvider.autoDispose.family<int, String>((ref, uid) async {
   final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   return doc.data()?['visibilityRadius'] as int? ?? 10;
@@ -152,6 +167,7 @@ final nearbyMatchupsProvider = StreamProvider<List<Matchup>>((ref) {
 });
 
 final matchupFromIdProvider = FutureProvider.autoDispose.family<Matchup, String>((ref, uid) async {
+  if (uid == '') return Matchup.dummy();
   final snap = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
   return Matchup.fromJson({...snap.data()!, 'id': snap.id, 'distanceKm': 100});
 });

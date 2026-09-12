@@ -24,6 +24,7 @@ class PlayerProfile {
   final String userId;
   final String displayName;
   final String? photoUrl;
+  final String? bannerUrl;
   final int height;
   final int position;
   final String bio;
@@ -42,6 +43,7 @@ class PlayerProfile {
     required this.userId,
     required this.displayName,
     required this.photoUrl,
+    required this.bannerUrl, 
     required this.height,
     required this.position,
     required this.bio,
@@ -60,6 +62,7 @@ class PlayerProfile {
       userId: json['userId'] as String,
       displayName: json['displayName'] as String,
       photoUrl: json['photoUrl'] as String?,
+      bannerUrl: json['bannerUrl'] as String?,
       height: json['height'] as int,
       position: json['position'] as int,
       bio: json['bio'] as String,
@@ -76,6 +79,7 @@ class PlayerProfile {
 
   factory PlayerProfile.dummy() {
     return PlayerProfile(
+      bannerUrl: '',
       userId: '',
       displayName: '',
       photoUrl: null,

@@ -1,7 +1,6 @@
 import 'dart:developer' show log;
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,13 +16,16 @@ import 'package:hooper/features/requests/presentation/propose_screen.dart';
 import 'package:map_launcher/map_launcher.dart';
 
 import '../../../core/services/providers.dart';
+import '../../../core/widgets/blurred_text_field.dart';
 import '../../matches/data/match_doc.dart';
 import 'system_message_widget.dart';
 import 'user_message_widget.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
-  const ChatScreen({super.key, required this.chatId});
+  final String? bannerUrl;
+  final String? heroTag;
+  const ChatScreen({super.key, required this.chatId, this.bannerUrl, this.heroTag});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -122,32 +124,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           orElse: () => const Text('Chat'),
         ),
       ),
-      body: chatAsync.when(
-        loading: () => const SplashScreen(),
-        error: (err, st) {
-          log(st.toString());
-          return Center(child: Text('Could not load this chat: $err'));
-        },
-        data: (chat) {
-          final otherId = chat.otherParticipant(uid);
-          final bannerAsync = ref.watch(playerBannerUrlProvider(otherId));
-          return Stack(
-            children: [
-              SizedBox.expand(
-                child: bannerAsync.maybeWhen(
-                  data: (data) => data.isEmpty
-                      ? const SizedBox()
-                      : ImageFiltered(
-                          imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: .mirror),
-                          child: Image(image: CachedNetworkImageProvider(data), fit: .cover),
-                        ),
-                  orElse: () => const SizedBox(),
-                ),
-              ),
-              SizedBox.expand(child: _buildBody(chat, uid, chat.otherParticipant(uid))),
-            ],
-          );
-        },
+      body: Stack(
+        children: [
+          SizedBox.expand(
+            child: widget.bannerUrl == null
+                ? const SizedBox()
+                : Hero(
+                    transitionOnUserGestures: true,
+                    tag: widget.heroTag ?? "banner",
+                    child: Image(image: ref.watch(imageProviderFamily(widget.bannerUrl!)), fit: .cover),
+                  ),
+          ),
+          chatAsync.when(
+            loading: () => const SplashScreen(),
+            error: (err, st) {
+              log(st.toString());
+              return Center(child: Text('Could not load this chat: $err'));
+            },
+            data: (chat) {
+              return SizedBox.expand(child: _buildBody(chat, uid, chat.otherParticipant(uid)));
+            },
+          ),
+        ],
       ),
     );
   }
@@ -175,11 +173,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               //     ),
               //   ),
               // ),
-              if (requestId != null) _buildDetailsSection(requestId),
+              if (requestId != null && requestId.isNotEmpty) _buildDetailsSection(requestId),
             ],
           ),
         ),
-        if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId),
+        if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId) else const SizedBox(height: 10),
       ],
     );
   }
@@ -195,6 +193,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           borderRadius: .circular(24),
           child: Column(
             children: [
+              const SizedBox(height: 12),
               _DetailsWidget(
                 request: request,
                 editing: _editingDetails,
@@ -259,23 +258,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.only(left: 8, right: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(hintText: _sendingMessage ? 'Sending...' : 'Message…', isDense: true),
-                  onSubmitted: (_) => _sendingMessage ? null : _send(),
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(icon: const Icon(Icons.send), onPressed: _sendingMessage ? null : _send),
-            ],
-          ),
-        ),
+        _buildTextBar(),
       ],
+    );
+  }
+
+  Padding _buildTextBar() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, right: 8, top: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: BlurredTextField(
+              controller: _messageController,
+              message: _sendingMessage ? 'Sending...' : 'Message',
+              onSubmitted: (_) => _sendingMessage ? null : _send(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(icon: const Icon(Icons.send), onPressed: _sendingMessage ? null : _send),
+        ],
+      ),
     );
   }
 
@@ -424,57 +427,62 @@ class _DetailsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final canEdit = request.status == MatchRequestStatus.pending;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: ShapeDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-        ),
-      ),
-      child: editing
-          ? Column(
-              crossAxisAlignment: .stretch,
-              children: [
-                TextField(
-                  controller: courtController,
-                  decoration: const InputDecoration(labelText: 'Court', isDense: true),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
-                const SizedBox(height: 8),
-                OutlinedButton(onPressed: onPickLocation, child: Text('Choose new location')),
-                const SizedBox(height: 8),
-                Row(
+    return ClipRSuperellipse(
+      borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          color: const Color.fromARGB(62, 255, 255, 255),
+          child: editing
+              ? Column(
+                  crossAxisAlignment: .stretch,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(onPressed: busy ? null : onCancelEdit, child: const Text('Cancel')),
+                    TextField(
+                      controller: courtController,
+                      decoration: const InputDecoration(labelText: 'Court', isDense: true),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton(onPressed: busy ? null : onSave, child: const Text('Save')),
+                    const SizedBox(height: 8),
+                    OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
+                    const SizedBox(height: 8),
+                    OutlinedButton(onPressed: onPickLocation, child: Text('Choose new location')),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(onPressed: busy ? null : onCancelEdit, child: const Text('Cancel')),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton(onPressed: busy ? null : onSave, child: const Text('Save')),
+                        ),
+                      ],
                     ),
                   ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: .start,
+                        children: [
+                          Text(request.court, style: Theme.of(context).textTheme.titleSmall),
+                          Text(
+                            request.scheduledTime.toLocal().toString(),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (canEdit)
+                      DarkIconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), shadow: false),
+                    const SizedBox(width: 12),
+                    DarkIconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded), shadow: false),
+                  ],
                 ),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    children: [
-                      Text(request.court, style: Theme.of(context).textTheme.titleSmall),
-                      Text(request.scheduledTime.toLocal().toString(), style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-                if (canEdit) DarkIconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), shadow: false),
-                const SizedBox(width: 12),
-                DarkIconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded), shadow: false),
-              ],
-            ),
+        ),
+      ),
     );
   }
 

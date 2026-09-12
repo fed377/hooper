@@ -1,13 +1,22 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:hooper/core/utils/utils.dart';
+import 'package:hooper/core/widgets/blurred_container.dart';
+import 'package:hooper/core/widgets/blurred_text_field.dart';
+import 'package:hooper/core/widgets/custom_data_box.dart';
+import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
-import 'package:hooper/features/matches/presentation/match_list_tile.dart';
+import 'package:hooper/features/matches/presentation/matches_list.dart';
+import 'package:hooper/features/profile/presentation/user_settings_screen.dart';
 
 import '../../../core/services/providers.dart';
+import '../../../core/widgets/animated_blurred_picker.dart';
+import '../../../core/widgets/position_picker.dart';
 import '../../discovery/data/matchup.dart' show tierForElo, tierLabel;
 import '../../profile/data/player_profile.dart';
 
@@ -102,19 +111,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profileAsync = ref.watch(myPlayerProfileProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.exit_to_app_rounded),
-            onPressed: () {
-              FirebaseAuth.instance.signOut();
-            },
-          ),
-          if (!_editing && profileAsync.hasValue)
-            IconButton(icon: const Icon(Icons.edit), onPressed: () => _enterEditMode(profileAsync.value!)),
-        ],
-      ),
+      extendBodyBehindAppBar: true,
       body: SkeletonWidget<PlayerProfile>(
         val: profileAsync,
         dummyData: PlayerProfile.dummy(),
@@ -122,172 +119,264 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (profile.userId == '') {
             return _buildViewMode(profile);
           }
-          return _editing ? _buildEditForm(uid, profile.displayName) : _buildViewMode(profile);
+          return Stack(
+            children: [
+              if (profile.bannerUrl != null && profile.bannerUrl != '')
+                SizedBox.expand(
+                  child: ClipRect(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: .mirror),
+                      child: Image(fit: .cover, image: ref.read(imageProviderFamily(profile.bannerUrl!))),
+                    ),
+                  ),
+                ),
+              SizedBox.expand(
+                child: ListView(
+                  children: [
+                    AppBar(
+                      backgroundColor: Colors.transparent,
+                      actions: [
+                        if (!_editing && profileAsync.hasValue)
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _enterEditMode(profileAsync.value!),
+                          ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.settings),
+                          onPressed: () =>
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UserSettingsScreen())),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                    ),
+                    _editing ? _buildEditForm(uid, profile.displayName) : _buildViewMode(profile),
+                  ],
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
   }
 
+  int currItem = 0;
+
   Widget _buildViewMode(PlayerProfile profile) {
     final tier = tierForElo(profile.elo);
     final rankAsync = ref.watch(rankProvider(profile.userId));
-    double radius = 40;
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: profile.photoUrl != null ? CachedNetworkImageProvider(profile.photoUrl!) : null,
-            child: profile.photoUrl == null ? Text(profile.displayName.substring(0, 1)) : null,
-          ),
           rankAsync.maybeWhen(orElse: () => const SizedBox()),
           const SizedBox(height: 12),
-          Text(profile.displayName, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(tierLabel(tier), style: Theme.of(context).textTheme.bodyMedium),
+          SizedBox(
+            child: Row(
+              crossAxisAlignment: .start,
+              children: [
+                SizedBox(
+                  child: CircleAvatar(
+                    radius: 70,
+                    backgroundImage: profile.photoUrl != null ? CachedNetworkImageProvider(profile.photoUrl!) : null,
+                    child: profile.photoUrl == null ? Text(profile.displayName.substring(0, 1)) : null,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  mainAxisSize: .min,
+                  crossAxisAlignment: .start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: .baseline,
+                      textBaseline: .alphabetic,
+                      children: [
+                        Text(
+                          '${profile.displayName} ⋅ ',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: .w900),
+                        ),
+                        Text(tierLabel(tier), style: Theme.of(context).textTheme.titleMedium),
+                      ],
+                    ),
+                    SizedBox(
+                      width: MediaQuery.sizeOf(context).width - 150 - 16 * 2,
+                      child: Text(profile.bio.isEmpty ? "No bio yet. " : profile.bio),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          DarkFilledButton(
+            onPressed: _updatingLocation ? null : () => _updateLocation(profile.userId),
+            child: Row(
+              mainAxisSize: .max,
+              mainAxisAlignment: .center,
+              children: [
+                _updatingLocation
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location),
+                const SizedBox(width: 8),
+                Text(profile.homeLocation == null ? "Set my location so I show up nearby" : 'Update my location'),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
           Row(
             children: [
-              _StatBox(label: '1v1 elo', value: '${profile.elo}'),
-              const Spacer(),
-              _StatBox(label: 'Games played', value: '${profile.gamesPlayed1v1}'),
+              Expanded(
+                child: CustomDataBox(label: 'ELO', value: '${profile.elo}', icon: Icons.leaderboard_rounded),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: CustomDataBox(label: 'Games', value: '${profile.gamesPlayed1v1}', icon: Icons.games_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDataBox(label: 'Height', value: '${profile.height}', icon: Icons.height_rounded),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: CustomDataBox(
+                  label: 'Position',
+                  value: capitalize(playerPositionFromInt(profile.position)?.name),
+                  icon: Icons.person_2_rounded,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          if (profile.bio.isNotEmpty) ...[
-            Text('Bio', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
-            Text(profile.bio),
-            const SizedBox(height: 16),
-          ],
-          Text(['${profile.height} cm', playerPositionFromInt(profile.position)].join(' · ')),
-          const SizedBox(height: 8),
-          Text(
-            'Visible to players within ${profile.visibilityRadius.toStringAsFixed(0)} km',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _updatingLocation ? null : () => _updateLocation(profile.userId),
-            icon: _updatingLocation
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.my_location),
-            label: Text(profile.homeLocation == null ? "Set my location so I show up nearby" : 'Update my location'),
-          ),
-          if ((profile.completedMatchIds?.isNotEmpty ?? false))
-            Expanded(
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: ShapeDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  shape: RoundedSuperellipseBorder(borderRadius: .circular(radius)),
+          BlurredContainer(
+            elevation: 2, 
+            sigma: 0,
+            child: Column(
+              mainAxisSize: .min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 6.0, left: 6, right: 6),
+                  child: AnimatedBlurredPicker(
+                    includeBlurredContainer: false,
+                    stretchFactor: 0.5,
+                    duration: Durations.medium1,
+                    radius: 36,
+                    height: 55,
+                    currItem: currItem.toDouble(),
+                    elements: [
+                      Row(
+                        mainAxisSize: .min,
+                        children: [
+                          const SizedBox(width: 8),
+                          Text("Finished"),
+                          const SizedBox(width: 8),
+                          Icon(Icons.history_rounded),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: .min,
+                        children: [
+                          const SizedBox(width: 8),
+                          Text("Upcoming"),
+                          const SizedBox(width: 8),
+                          Icon(Icons.schedule_rounded),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                    ],
+                    onTap: (int p1) {
+                      setState(() => currItem = p1);
+                    },
+                  ),
                 ),
-                child: ListView.builder(
-                  itemCount: profile.completedMatchIds!.length,
-                  itemBuilder: (context, i) {
-                    final matchId = profile.completedMatchIds![i];
-                    final matchAsync = ref.watch(matchAndMatchupProvider((matchId, profile.userId)));
-
-                    return SkeletonWidget(
-                      val: matchAsync,
-                      dummyData: MatchOpponent.dummy(),
-                      builder: (MatchOpponent data) {
-                        return MatchListTile(match: data.match, matchup: data.matchup, radius: radius - 16);
-                      },
-                    );
-                  },
+                MatchesList(
+                  includeBlurredContainer: false,
+                  label: currItem == 1 ? "Upcoming Matches" : "Finished Matches",
+                  matchesAsync: AsyncValue.data(
+                    (currItem == 1 ? profile.lockedMatchIds : profile.completedMatchIds) ?? [],
+                  ),
+                  userId: profile.userId,
                 ),
-              ),
-            )
-          else
-            Text("You have not completed any matches yet"),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildEditForm(String uid, String oldName) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        TextField(
-          controller: _nameController,
-          decoration: const InputDecoration(labelText: 'Display name', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _bioController,
-          maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Bio', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _heightController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Height (cm)', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<PlayerPosition>(
-          initialValue: _position,
-          decoration: const InputDecoration(labelText: 'Position', border: OutlineInputBorder()),
-          items: PlayerPosition.values.map((p) => DropdownMenuItem(value: p, child: Text(p.name))).toList(),
-          onChanged: (p) => setState(() => _position = p),
-        ),
-        const SizedBox(height: 12),
-        Text('Discovery radius: ${_visibilityRadiusKm.toStringAsFixed(0)} km'),
-        Slider(
-          value: _visibilityRadiusKm.toDouble(),
-          min: 1,
-          max: 50,
-          divisions: 49,
-          label: '${_visibilityRadiusKm.toStringAsFixed(0)} km',
-          onChanged: (v) => setState(() => _visibilityRadiusKm = v.toInt()),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _saving ? null : () => setState(() => _editing = false),
-                child: const Text('Cancel'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: _saving ? null : () => _save(uid, oldName),
-                child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Save'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String label;
-  final String value;
-  const _StatBox({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: ShapeDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          shape: RoundedSuperellipseBorder(borderRadius: .circular(16)),
-        ),
+    final colors = HooprColors.instance;
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        setState(() => _editing = false);
+      },
+      canPop: false,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: .start,
           children: [
-            Text(value, style: Theme.of(context).textTheme.titleLarge),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            BlurredTextField(controller: _nameController, message: 'Display Name'),
+            const SizedBox(height: 12),
+            BlurredTextField(controller: _bioController, message: 'Bio', maxLines: 3, maxLength: 100),
+            const SizedBox(height: 12),
+            BlurredTextField(controller: _heightController, keyboardType: TextInputType.number, message: 'Height (cm)'),
+            const SizedBox(height: 12),
+            PositionPicker(
+              enabled: true,
+              selected: _position ?? PlayerPosition.guard,
+              onSelectionChanged: (set) => setState(() => _position = set),
+            ),
+            const SizedBox(height: 12),
+            BlurredContainer(
+              elevation: 1, 
+              color: colors.blurColor,
+              borderWidth: 1.5,
+              radius: 22,
+              child: Column(
+                mainAxisSize: .min,
+                crossAxisAlignment: .start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20.0, top: 18),
+                    child: Text('Discovery radius: ${_visibilityRadiusKm.toStringAsFixed(0)} km'),
+                  ),
+                  Slider(
+                    value: _visibilityRadiusKm.toDouble(),
+                    min: 1,
+                    max: 50,
+                    divisions: 49,
+                    onChanged: (v) => setState(() => _visibilityRadiusKm = v.toInt()),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: DarkFilledButton(
+                    onPressed: _saving ? null : () => setState(() => _editing = false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _saving ? null : () => _save(uid, oldName),
+                    child: _saving
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/core/services/providers.dart';
@@ -7,6 +5,8 @@ import 'package:hooper/features/chat/presentation/inbox_screen.dart';
 import 'package:hooper/features/discovery/presentation/feed_screen.dart';
 import 'package:hooper/features/leaderboard/presentation/leaderboard_screen.dart';
 import 'package:hooper/features/profile/presentation/profile_screen.dart';
+
+import '../core/widgets/blurred_picker.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -16,14 +16,14 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  int _currPage = 0;
+  double _currPage = 0;
 
   late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currPage);
+    _pageController = PageController(initialPage: _currPage.toInt());
   }
 
   @override
@@ -32,88 +32,77 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  Widget _buildBottomBar(double rad) {
+  Widget _buildBottomBar(double rad, Duration duration) {
     final icons = [
-      Icons.sports_basketball_rounded,
-      Icons.chat_rounded,
-      Icons.bar_chart_rounded,
-      Icons.person_2_rounded,
+      Icon(Icons.sports_basketball_rounded, size: 26, color: Colors.black),
+      Icon(Icons.chat_rounded, size: 26, color: Colors.black),
+      Icon(Icons.bar_chart_rounded, size: 26, color: Colors.black),
+      Icon(Icons.person_2_rounded, size: 26, color: Colors.black),
     ];
-
+    void onTap(index) => onDestination(index, duration);
+    final radius = rad - 12;
+    final height = 64.0;
     return Padding(
       padding: const EdgeInsets.all(12.0),
-      child: ClipRSuperellipse(
-        borderRadius: .circular(rad),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color.fromARGB(153, 255, 255, 255),
-              //Theme.of(context).navigationBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surfaceContainer,
-            ),
-            height: 64,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                AnimatedAlign(
-                  alignment: FractionalOffset((_currPage) / 3, 0),
-                  duration: Durations.medium1,
-                  child: FractionallySizedBox(
-                    widthFactor: 0.25,
-                    child: Container(
-                      decoration: ShapeDecoration(
-                        color: const Color.fromARGB(34, 0, 0, 0),
-                        shape: RoundedSuperellipseBorder(borderRadius: .circular(rad - 8)),
-                      ),
-                      margin: EdgeInsets.all(8),
-                    ),
-                  ),
-                ),
-                Row(
-                  crossAxisAlignment: .stretch,
-                  children: List.generate(4, (index) {
-                    final isCurr = _currPage == index;
-                    return Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => onDestination(index),
-                        child: SizedBox(
-                          width: (MediaQuery.of(context).size.width - 24) / 4,
-                          child: Icon(icons[index], size: 26, color: isCurr ? Colors.black : Colors.grey),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
-            ),
-          ),
+      child: BlurredPicker(
+        radius: radius,
+        height: height,
+        progress: _pagePosition,
+        elements: icons,
+        onTap: onTap,
+        startIndex: startIndex,
+        endIndex: endIndex,
+      ),
+    );
+  }
+
+  double _pagePosition = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cornerRadiusAsync = ref.watch(cornerRadiusProvider);
+
+    final duration = Durations.medium3;
+    return Scaffold(
+      extendBody: true,
+      bottomNavigationBar: _buildBottomBar(
+        cornerRadiusAsync.when(data: (x) => x, loading: () => 20, error: (_, _) => 20),
+        duration,
+      ),
+      body: NotificationListener(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            setState(() {
+              if (notification.dragDetails != null) {
+                startIndex = null;
+                endIndex = null;
+              }
+              _pagePosition = _pageController.page ?? _pageController.initialPage.toDouble();
+            });
+          }
+          return false;
+        },
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: (index) {
+            setState(() => _currPage = index.toDouble());
+          },
+          physics: const ClampingScrollPhysics(),
+          children: const [MatchupFeedScreen(), ChatInboxScreen(), LeaderboardScreen(), ProfileScreen()],
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final cornerRadiusAsync = ref.watch(cornerRadiusProvider);
-    return Scaffold(
-      extendBody: true,
-      bottomNavigationBar: _buildBottomBar(cornerRadiusAsync.hasValue ? cornerRadiusAsync.value! : 20),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() => _currPage = index);
-        },
-        physics: const ClampingScrollPhysics(),
-        children: const [MatchupFeedScreen(), ChatInboxScreen(), LeaderboardScreen(), ProfileScreen()],
-      ),
-    );
-  }
+  double? startIndex;
+  double? endIndex;
 
-  void onDestination(int index) {
+  void onDestination(int index, Duration duration) {
     setState(() {
-      _currPage = index;
-      _pageController.animateToPage(_currPage, duration: Durations.medium1, curve: Curves.easeInOut);
+      startIndex = _currPage;
+      _currPage = index.toDouble();
+      endIndex = _currPage;
+      _pageController.animateToPage(index, duration: duration, curve: Curves.easeInOut);
     });
   }
 }

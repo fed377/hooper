@@ -1,8 +1,7 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/core/services/providers.dart';
+import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:hooper/core/widgets/elo_rank_chip.dart';
 import 'package:hooper/features/discovery/data/matchup.dart';
@@ -37,102 +36,72 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
     Matchup match = widget.matchup;
     match.tier;
     final repo = ref.watch(preferencesRepoProvider);
-    final blurSigma = 12.0;
+    final textTheme = TextTheme.of(context);
     return Padding(
       padding: .only(top: 12, bottom: 88, left: 12, right: 12),
       child: GestureDetector(
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: match))),
         child: Align(
           alignment: Alignment.bottomCenter,
-          child: Hero(
-            tag: "mainchip",
-            flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
-              return SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: toHeroContext.widget);
-            },
-            child: Material(
-              type: MaterialType.transparency,
-              child: ClipRSuperellipse(
-                borderRadius: .circular(36),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-                  child: Container(
-                    decoration: ShapeDecoration(
-                      color: const Color.fromARGB(125, 255, 255, 255),
-                      shape: RoundedSuperellipseBorder(borderRadius: .circular(32)),
+          child: BlurredContainer(
+            elevation: 1,
+            child: RepaintBoundary(
+              child: Padding(
+                padding: const .symmetric(vertical: 16, horizontal: spacing),
+                child: Column(
+                  mainAxisSize: .min,
+                  mainAxisAlignment: .end,
+                  children: [
+                    Row(
+                      crossAxisAlignment: .center,
+                      children: [
+                        Text(match.displayName, style: textTheme.headlineMedium?.copyWith(fontWeight: .bold)),
+                        if (match.id != '') ...[const Spacer(), _buildRecentForm(match), const SizedBox(width: 6)],
+                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: spacing),
-                      child: Column(
-                        mainAxisSize: .min,
-                        mainAxisAlignment: .end,
-                        children: [
-                          Row(
-                            crossAxisAlignment: .center,
-                            children: [
-                              Text(
-                                match.displayName,
-                                style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold),
-                              ),
-                              if (match.id != '') ...[
-                                const Spacer(),
-                                const SizedBox(width: 6),
-                                ..._buildRecentForm(match),
-                                const SizedBox(width: 6),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              EloRankChip(elo: match.elo),
-                              const SizedBox(width: 12),
-                              Text(
-                                "${match.elo} ELO",
-                                style: TextTheme.of(context).labelLarge?.copyWith(color: Colors.black),
-                              ),
-                              const Spacer(),
-                              Text("${match.distanceKm} km away"),
-                            ],
-                          ),
-                          const SizedBox(height: spacing),
-                          Row(
-                            mainAxisSize: .max,
-                            crossAxisAlignment: .end,
-                            mainAxisAlignment: .spaceBetween,
-                            children: [
-                              _buildMenuAnchor(repo, context, match),
-                              const SizedBox(width: spacing),
-                              IconButton.filledTonal(
-                                style: ElevatedButton.styleFrom(
-                                  shape: CircleBorder(),
-                                  minimumSize: Size(0, 50),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  padding: EdgeInsets.all(14),
-                                ),
-                                icon: Icon(Icons.chat_bubble_rounded, size: 20),
-                                onPressed: widget.onChat,
-                              ),
-                              const SizedBox(width: spacing),
-                              Expanded(
-                                child: DarkFilledButton(
-                                  shadow: false,
-                                  onPressed: widget.hasChallengedYou ? widget.onAccept : widget.onChallenge,
-                                  child: Text(
-                                    widget.hasChallengedYou ? "Accept" : "Play",
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        EloRankChip(elo: match.elo),
+                        const SizedBox(width: 12),
+                        Text("${match.elo} ELO", style: textTheme.labelLarge?.copyWith(color: Colors.black)),
+                        const Spacer(),
+                        Text("${match.distanceKm} km away"),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: spacing),
+                    Row(
+                      mainAxisSize: .max,
+                      crossAxisAlignment: .end,
+                      mainAxisAlignment: .spaceBetween,
+                      children: [
+                        _buildMenuAnchor(repo, context, match),
+                        const SizedBox(width: spacing),
+                        IconButton.filledTonal(
+                          style: ElevatedButton.styleFrom(
+                            shape: CircleBorder(),
+                            minimumSize: Size(0, 50),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.all(14),
+                          ),
+                          icon: Icon(Icons.chat_bubble_rounded, size: 20),
+                          onPressed: widget.onChat,
+                        ),
+                        const SizedBox(width: spacing),
+                        Expanded(
+                          child: DarkFilledButton(
+                            shadow: false,
+                            onPressed: widget.hasChallengedYou ? widget.onAccept : widget.onChallenge,
+                            child: Text(widget.hasChallengedYou ? "Accept" : "Play", style: TextStyle(fontSize: 16)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
+          ).asHero("mainchip"),
         ),
       ),
     );
@@ -140,6 +109,7 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
 
   MenuAnchor _buildMenuAnchor(FirestorePreferencesRepository repo, BuildContext context, Matchup match) {
     return MenuAnchor(
+      consumeOutsideTap: true,
       alignmentOffset: Offset(-10, -70),
       menuChildren: [
         MenuItemButton(
@@ -195,23 +165,53 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
     );
   }
 
-  List<Widget> _buildRecentForm(Matchup match) {
-    return List.generate(
-      match.recentForm.length,
-      (index) => Container(
-        margin: EdgeInsets.all(1),
-        height: 15,
-        width: 10,
-        decoration: BoxDecoration(
-          color: !match.recentForm[index] ? Colors.red : Colors.green,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(index == 0 ? 8 : 2),
-            bottomLeft: Radius.circular(index == 0 ? 8 : 2),
-            topRight: Radius.circular(index == match.recentForm.length - 1 ? 8 : 2),
-            bottomRight: Radius.circular(index == match.recentForm.length - 1 ? 8 : 2),
-          ),
-        ),
-      ),
+  Widget _buildRecentForm(Matchup match) {
+    return CustomPaint(
+      size: Size((match.recentForm.length * 12).toDouble(), 15),
+      painter: RecentFormPainter(recentForm: match.recentForm),
     );
+  }
+}
+
+class RecentFormPainter extends CustomPainter {
+  final List<bool> recentForm;
+
+  RecentFormPainter({required this.recentForm});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (recentForm.isEmpty) return;
+
+    final double itemWidth = 10.0;
+    final double spacing = 2.0;
+    final double height = size.height;
+
+    for (int i = 0; i < recentForm.length; i++) {
+      final isWin = recentForm[i];
+      final paint = Paint()
+        ..color = isWin ? Colors.green : Colors.red
+        ..style = PaintingStyle.fill;
+
+      final double left = i * (itemWidth + spacing);
+      final rect = Rect.fromLTWH(left, 0, itemWidth, height);
+
+      final double leftRadius = (i == 0) ? 8.0 : 2.0;
+      final double rightRadius = (i == recentForm.length - 1) ? 8.0 : 2.0;
+
+      final rrect = RRect.fromRectAndCorners(
+        rect,
+        topLeft: Radius.circular(leftRadius),
+        bottomLeft: Radius.circular(leftRadius),
+        topRight: Radius.circular(rightRadius),
+        bottomRight: Radius.circular(rightRadius),
+      );
+
+      canvas.drawRRect(rrect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant RecentFormPainter oldDelegate) {
+    return oldDelegate.recentForm != recentForm;
   }
 }

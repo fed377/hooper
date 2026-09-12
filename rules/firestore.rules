@@ -120,7 +120,7 @@ service cloud.firestore {
     // proposeMatch.
     // ─────────────────────────────────────────────────────────────
     match /chats/{chatId} {
-      allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      allow read: if request.auth != null && (request.auth.uid in resource.data.participantIds || request.auth.uid in chatId.split('_'));
 
       // Reachable now that MatchupCard's chat button (and the first
       // message sent through it) can create a chat doc that never
@@ -156,14 +156,14 @@ service cloud.firestore {
       // enforce it here too.
       match /messages/{messageId} {
         allow read: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds || request.auth.uid in chatId.split('_'));
 
         // Clients only ever send isSystem: false, as themselves.
         // System messages (proposeMatch, acceptRequest, etc.) come
         // from Cloud Functions via the Admin SDK, which bypasses
         // rules entirely — this branch is never how those get written.
         allow create: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds
+          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds || request.auth.uid in chatId.split('_'))
           && request.resource.data.isSystem == false
           && request.resource.data.senderId == request.auth.uid;
 

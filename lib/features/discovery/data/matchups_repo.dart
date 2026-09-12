@@ -84,7 +84,6 @@ class FirestoreMatchupRepository {
       for (final entry in merged.entries) {
         if (entry.key == excludeUserId) continue;
         if (restrictedUserIds.contains(entry.key)) continue;
-        log('emit');
         final data = entry.value;
         final homeLocation = data['homeLocation'] as GeoPoint?;
         final status = data['status'] as String? ?? "active";
@@ -102,7 +101,6 @@ class FirestoreMatchupRepository {
                 .round() /
             100;
         if (distanceKm > radiusKm) {
-          log(entry.key);
           continue;
         }
 

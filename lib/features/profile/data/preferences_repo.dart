@@ -3,8 +3,6 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:hooper/features/profile/data/user_preferences.dart';
 
-//Report Status: Sent, Reviewing, Finished
-
 class FirestorePreferencesRepository {
   FirestorePreferencesRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -12,13 +10,17 @@ class FirestorePreferencesRepository {
   final FirebaseFirestore _firestore;
 
   Stream<UserPreference> watchMyPreferences(String uid) {
-    return _firestore.collection('userPreferences').doc(uid).snapshots().map((snap) {
+    return _firestore.collection('preferences').doc(uid).snapshots().map((snap) {
       final data = snap.data();
       if (data == null) {
-        throw StateError('playerProfiles/$uid does not exist yet.');
+        throw StateError('preferences/$uid does not exist yet.');
       }
       return UserPreference.fromJson({'userId': uid, ...data});
     });
+  }
+
+  Future<void> updatePreferences(String uid, UserPreference prefs) async {
+    await _firestore.collection('preferences').doc(uid).set(prefs.toJson(), SetOptions(merge: true));
   }
 
   Future<void> _reportUser(String myId, String targetId, String reason, String? matchId) async {
@@ -48,7 +50,7 @@ class FirestorePreferencesRepository {
         return AlertDialog(
           title: Text("Report $targetName"),
           content: Column(
-            crossAxisAlignment: .stretch,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: .min,
             children: [
               TextField(onChanged: (text) => reason = text),
@@ -121,12 +123,12 @@ class FirestorePreferencesRepository {
   }
 
   Future<void> _blockUser(String myId, String targetId) async {
-    await _firestore.collection('preferences').doc(myId).set({
+    await _firestore.collection('preferences').doc(myId).update({
       'blockedUsers': FieldValue.arrayUnion([targetId]),
-    }, SetOptions(merge: true));
-    await _firestore.collection('preferences').doc(targetId).set({
+    });
+    await _firestore.collection('preferences').doc(targetId).update({
       'blockedBy': FieldValue.arrayUnion([myId]),
-    }, SetOptions(merge: true));
+    });
   }
 
   Future<bool> confirmBlockUser(

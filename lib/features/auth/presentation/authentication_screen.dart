@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooper/core/services/google_auth_service.dart';
+import 'package:hooper/core/widgets/blurred_text_field.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+
+import '../../../core/widgets/background_image.dart';
 
 class AuthenticationScreen extends StatefulWidget {
   const AuthenticationScreen({super.key, required this._isRegistering});
@@ -63,8 +66,11 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       } else {
         await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
       }
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, trace) {
       if (!mounted) return;
+      log(e.toString());
+      log(e.message.toString());
+      log(trace.toString());
       setState(() => _error = _messageFor(e.code));
     } finally {
       TextInput.finishAutofillContext();
@@ -131,26 +137,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       ),
       body: Stack(
         children: [
-          SizedBox.expand(
-            child: Hero(
-              transitionOnUserGestures: true,
-              tag: "img",
-              child: ColorFiltered(
-                colorFilter: .mode(const Color.fromARGB(255, 44, 44, 47), .color),
-                child: ImageFiltered(
-                  imageFilter: .blur(sigmaX: 6, sigmaY: 6, tileMode: .mirror),
-                  child: Image(
-                    alignment: .centerLeft,
-                    fit: .cover,
-                    image: NetworkImage(
-                      "https://plus.unsplash.com/premium_photo-1685366454253-cb705836c5a8?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
+          BackgroundImage(),
           SizedBox.expand(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -173,24 +160,24 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                         physics: const NeverScrollableScrollPhysics(),
                         shrinkWrap: true,
                         children: [
-                          TextField(
+                          BlurredTextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             autocorrect: false,
                             autofillHints: const [AutofillHints.email],
-                            decoration: InputDecoration(labelText: 'Email'),
+                            message: "E-Mail",
                           ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
                               Expanded(
-                                child: TextField(
+                                child: BlurredTextField(
                                   controller: _passwordController,
                                   obscureText: !_showPw,
                                   autofillHints: [
                                     widget._isRegistering ? AutofillHints.newPassword : AutofillHints.password,
                                   ],
-                                  decoration: const InputDecoration(labelText: 'Password'),
+                                  message: 'Password',
                                   onSubmitted: (_) => _submit(),
                                 ),
                               ),

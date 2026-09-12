@@ -2,8 +2,11 @@
 //import 'package:cloud_functions/cloud_functions.dart';
 //import 'package:firebase_auth/firebase_auth.dart';
 //import 'package:flutter/foundation.dart' show kDebugMode;
+import 'dart:io';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/app/firebase_options.dart';
 import 'package:hooper/app/gates/auth_gate.dart';
@@ -19,6 +22,21 @@ Future<void> main() async {
     webClientId: "146796569082-cqcg4hmslg3a81gjoupatff6646omquq.apps.googleusercontent.com",
     iosClientId: DefaultFirebaseOptions.currentPlatform.iosClientId,
   );
+
+  if (!Platform.isAndroid) return;
+
+  SystemChrome.setEnabledSystemUIMode(.edgeToEdge);
+
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: true,
+    ),
+  );
+
   runApp(ProviderScope(child: const HooperApp()));
 }
 
@@ -33,14 +51,6 @@ class HooperApp extends StatelessWidget {
       colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 3, 108, 255)),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(shape: RoundedSuperellipseBorder(borderRadius: .circular(rad))),
-      ),
-      inputDecorationTheme: InputDecorationThemeData(
-        filled: true,
-        fillColor: const Color.fromARGB(107, 255, 255, 255),
-        border: ShapedInputBorder(
-          shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-          borderSide: .none,
-        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -66,7 +76,7 @@ class HooperApp extends StatelessWidget {
         style: FilledButton.styleFrom(
           padding: .all(12),
           shape: CircleBorder(),
-          backgroundColor: const Color.fromARGB(224, 255, 255, 255),
+          backgroundColor: const Color.fromARGB(225, 255, 255, 255),
           foregroundColor: Colors.black,
         ),
       ),

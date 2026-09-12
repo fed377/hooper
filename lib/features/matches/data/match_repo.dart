@@ -77,7 +77,7 @@ class FirestoreMatchRepository {
     return Chat.fromJson({
       ...data,
       'id': snap.id,
-      'createdAt': (data['createdAt'] as Timestamp).toDate(),
+      'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       'lastMessageAt': (data['lastMessageAt'] as Timestamp?)?.toDate(),
     });
   }

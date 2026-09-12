@@ -16,8 +16,7 @@ final appAuthStateProvider = FutureProvider<AppAuthState>((ref) async {
   }
 
   // 2. Email verification
-  final isVerified = await ref.watch(_userVerifiedProvider.future);
-  if (!isVerified) {
+  if (!user.emailVerified) {
     return AppAuthState(status: AuthStatus.unverified, user: user);
   }
 
@@ -43,12 +42,6 @@ final appAuthStateProvider = FutureProvider<AppAuthState>((ref) async {
   }
 
   return AppAuthState(status: AuthStatus.authenticated, user: user);
-});
-
-final _userVerifiedProvider = FutureProvider<bool>((ref) async {
-  User? user = FirebaseAuth.instance.currentUser;
-  await user?.reload();
-  return FirebaseAuth.instance.currentUser?.emailVerified ?? false;
 });
 
 class AccountStatusInfo({required var String status, required var String? reason});

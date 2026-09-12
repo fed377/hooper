@@ -1,3 +1,5 @@
+import 'dart:developer' show log;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,14 +83,18 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
   Widget build(BuildContext context) {
     final initialPoint = widget.controller.point;
     final styleAsync = ref.read(mapStyleProvider);
-    return Padding(
-      padding: EdgeInsets.only(top: 0, right: 14, left: 14, bottom: 14),
-      child: ClipRSuperellipse(
-        borderRadius: .circular(34),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height / 3,
-          child: Stack(
-            children: [
+    final route = ModalRoute.of(context);
+
+    final isAnimating =
+        route?.animation?.status == AnimationStatus.forward || route?.animation?.status == AnimationStatus.reverse;
+    log(isAnimating.toString());
+    return ClipRSuperellipse(
+      borderRadius: .circular(34),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height / 3,
+        child: Stack(
+          children: [
+            if (!isAnimating)
               SizedBox.expand(
                 child: SkeletonWidget<String>(
                   builder: (style) => GoogleMap(
@@ -113,12 +119,11 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
                   dummyData: '',
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.only(bottom: 40.0),
-                child: const Center(child: Icon(Icons.location_on, size: 50)),
-              ),
-            ],
-          ),
+            Padding(
+              padding: EdgeInsets.only(bottom: 40.0),
+              child: const Center(child: Icon(Icons.location_on, size: 50)),
+            ),
+          ],
         ),
       ),
     );

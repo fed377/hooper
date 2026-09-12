@@ -14,11 +14,18 @@ import 'package:hooper/features/profile/presentation/profile_fill_screen.dart';
 
 import '../../features/auth/presentation/app_enter_screen.dart';
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  bool emailSent = false;
+
+  @override
+  Widget build(BuildContext context) {
     final authStatus = ref.watch(appAuthStateProvider);
 
     return authStatus.when(
@@ -54,6 +61,8 @@ class AuthGate extends ConsumerWidget {
   }
 
   void _sendVerificationEmail(User? user) {
+    if (emailSent) return;
     user?.sendEmailVerification().catchError((e) => log("Error sending email: $e"));
+    setState(() => emailSent = true);
   }
 }

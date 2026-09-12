@@ -23,7 +23,7 @@ export const onUserCreation = functions.identity.beforeUserCreated(
 
     batch.set(db.collection("playerProfiles").doc(user.uid), {
       displayName: user.displayName ?? "New Player",
-      photoUrl: user.photoURL,
+      photoUrl: user.photoURL ?? null,
       bannerUrl: null,
       elo: 1200,
       visibilityRadius: 10,

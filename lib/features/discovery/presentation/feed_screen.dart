@@ -88,18 +88,23 @@ class MatchupFeedScreenState extends ConsumerState<MatchupFeedScreen> {
                     scrollDirection: Axis.vertical,
                     itemBuilder: (context, index) {
                       final matchup = matchups[index];
-                      return (matchup.id == '')
-                          ? Container(color: Theme.of(context).colorScheme.surfaceContainerHighest)
-                          : Hero(
-                              tag: "banner",
-                              child: matchup.bannerUrl == null || matchup.bannerUrl == ''
-                                  ? Center(child: Icon(Icons.question_mark_rounded))
-                                  : GestureDetector(
-                                      onTap: () => Navigator.of(context)
-                                          .push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: matchup))),
-                                      child: Image.network(matchup.bannerUrl!, fit: BoxFit.cover),
-                                    ),
-                            );
+                      return RepaintBoundary(
+                        child: (matchup.id == '')
+                            ? Container(color: Theme.of(context).colorScheme.surfaceContainerHighest)
+                            : GestureDetector(
+                                onTap: () =>
+                                    Navigator.of(context)
+                                        .push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: matchup))),
+                                child: Hero(
+                                  tag: "banner_${matchup.id}",
+                                  transitionOnUserGestures: true,
+                                  child: Image(
+                                    image: ref.read(imageProviderFamily(matchup.bannerUrl!)),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                      );
                     },
                     onPageChanged: (i) => setState(() => _currIndex = i),
                   ),
@@ -117,18 +122,26 @@ class MatchupFeedScreenState extends ConsumerState<MatchupFeedScreen> {
     return MatchupCard(
       matchup: matchup,
       hasChallengedYou: incomingRequestId != null,
-      onChallenge: () => ProposeMatchScreen.pushProposal(matchup.id, context),
+      onChallenge: () => ProposeMatchScreen.pushProposalWithMatchup(matchup, context),
       onAccept: incomingRequestId == null
           ? null
           : () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ChatScreen(chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider))),
+                builder: (_) => ChatScreen(
+                  chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider)),
+                  bannerUrl: matchup.bannerUrl,
+                  heroTag: "banner_${matchup.id}",
+                ),
               ),
             ),
       myId: ref.read(currentUserIdProvider),
       onChat: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ChatScreen(chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider))),
+          builder: (_) => ChatScreen(
+            chatId: Chat.pairChatId(matchup.id, ref.read(currentUserIdProvider)),
+            bannerUrl: matchup.bannerUrl,
+            heroTag: "banner_${matchup.id}",
+          ),
         ),
       ),
     );

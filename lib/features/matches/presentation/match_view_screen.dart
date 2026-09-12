@@ -1,12 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/core/utils/utils.dart';
+import 'package:hooper/core/widgets/blurred_container.dart';
+import 'package:hooper/core/widgets/custom_data_box.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
-import 'package:hooper/features/matches/data/match_repo.dart';
 import 'package:hooper/features/chat/data/chat.dart';
-import 'package:hooper/features/discovery/data/matchup.dart';
 import 'package:hooper/features/chat/presentation/chat_screen.dart';
-import 'package:hooper/features/requests/presentation/matchup_view_screen.dart';
+import 'package:hooper/features/location/presentation/location_picker.dart';
+import 'package:hooper/features/matches/data/match_repo.dart';
 
 import '../../../core/services/providers.dart';
 import '../data/match_doc.dart';
@@ -63,30 +64,13 @@ class _MatchBody extends ConsumerWidget {
     }
   }
 
-  Widget _buildDisplayCard(BuildContext context, Matchup m) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: m))),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 46,
-            foregroundImage: (m.photoUrl != null) ? CachedNetworkImageProvider(m.photoUrl!) : null,
-            child: (m.photoUrl == null) ? Text(m.displayName[0]) : null,
-          ),
-          const SizedBox(height: 10),
-          Text(m.displayName, style: Theme.of(context).textTheme.headlineSmall),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mySide = match.mySide(uid);
     final isParticipant = mySide != null;
 
-    final meAsync = ref.watch(matchupFromIdProvider(mySide == 'B' ? match.sideBId : match.sideAId));
-    final otherAsync = ref.watch(matchupFromIdProvider(mySide == 'B' ? match.sideAId : match.sideBId));
+    // final meAsync = ref.watch(matchupFromIdProvider(mySide == 'B' ? match.sideBId : match.sideAId));
+    // final otherAsync = ref.watch(matchupFromIdProvider(mySide == 'B' ? match.sideAId : match.sideBId));
 
     final nameAAsync = ref.watch(playerDisplayNameProvider(match.sideAId));
     final nameBAsync = ref.watch(playerDisplayNameProvider(match.sideBId));
@@ -97,46 +81,38 @@ class _MatchBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        if (!isParticipant)
-          Center(
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                if (!isParticipant) ...[
-                  SkeletonWidget<Matchup>(
-                    val: meAsync,
-                    dummyData: Matchup.dummy(),
-                    builder: (Matchup m) => _buildDisplayCard(context, m),
-                  ),
-                  Column(
-                    mainAxisAlignment: .end,
-                    children: [
-                      const SizedBox(height: 102, width: 50),
-                      Text(" vs ", style: Theme.of(context).textTheme.headlineSmall),
-                    ],
-                  ),
-                ],
-                SkeletonWidget<Matchup>(
-                  val: otherAsync,
-                  dummyData: Matchup.dummy(),
-                  builder: (Matchup m) => _buildDisplayCard(context, m),
-                ),
-              ],
+        Text(
+          formatDateShort(match.scheduledTime),
+          style: TextTheme.of(context).titleSmall?.copyWith(color: Colors.grey),
+        ),
+        Text(
+          "${nameAAsync.when(data: (data) => data, error: (_, _) => 'ERROR', loading: () => '-----')} vs ${nameBAsync.when(data: (data) => data, error: (_, _) => 'ERROR', loading: () => '-----')}",
+          style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold),
+        ),
+        if (!isParticipant) const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: CustomDataBox(color: col, icon: Icons.place_rounded, value: match.court, label: 'Court'),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: CustomDataBox(
+                color: col,
+                icon: Icons.schedule_outlined,
+                value: formatDuration(match.confirmedAt!.difference(match.scheduledTime)),
+                label: 'Time',
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
-        _StatusChip(status: match.status),
-        const SizedBox(height: 24),
-        _InfoRow(icon: Icons.place_outlined, label: 'Court', value: match.court),
-        _InfoRow(icon: Icons.schedule_outlined, label: 'Time', value: match.scheduledTime.toString()),
-        const SizedBox(height: 20),
+        LocationPicker.locationDisplayer(match.location),
+        const SizedBox(height: 16),
         if (match.status == MatchStatus.confirmed) _buildResult(context, mySide, nameAAsync.value, nameBAsync.value),
         if (match.status == MatchStatus.cancelled) const Text('This match was cancelled.', textAlign: TextAlign.center),
         if (match.status == MatchStatus.scheduled)
-          const Text(
-            "This match hasn't started yet — you'll be prompted to enter a score once it does.",
-            textAlign: TextAlign.center,
-          ),
+          const Text("This match hasn't started yet.", textAlign: TextAlign.center),
         if (match.status == MatchStatus.inProgress ||
             match.status == MatchStatus.awaitingConfirmation ||
             match.status == MatchStatus.disputed)
@@ -163,23 +139,26 @@ class _MatchBody extends ConsumerWidget {
     );
   }
 
+  final col = const Color.fromARGB(255, 233, 233, 233);
+
   Widget _buildResult(BuildContext context, String? mySide, String? nameA, String? nameB) {
     final aWon = (match.scoreA ?? 0) > (match.scoreB ?? 0);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: ShapeDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-      ),
-      child: Column(
-        children: [
-          Text('${match.scoreA} – ${match.scoreB}', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 12),
-          _ResultSideRow(name: nameA ?? '…', isMe: mySide == 'A', won: aWon, delta: match.eloDeltaA),
-          const SizedBox(height: 6),
-          _ResultSideRow(name: nameB ?? '…', isMe: mySide == 'B', won: !aWon, delta: match.eloDeltaB),
-        ],
+    return BlurredContainer(
+      elevation: 2, 
+      sigma: 0,
+      color: col,
+      radius: 24,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text('${match.scoreA} – ${match.scoreB}', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 12),
+            _ResultSideRow(name: nameA ?? '…', isMe: mySide == 'A', won: aWon, delta: match.eloDeltaA),
+            const SizedBox(height: 6),
+            _ResultSideRow(name: nameB ?? '…', isMe: mySide == 'B', won: !aWon, delta: match.eloDeltaB),
+          ],
+        ),
       ),
     );
   }
@@ -205,63 +184,6 @@ class _ResultSideRow extends StatelessWidget {
         if (delta != null)
           Text('${delta! > 0 ? '+' : ''}$delta elo', style: TextStyle(color: delta! > 0 ? Colors.green : Colors.red)),
       ],
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _InfoRow({required this.icon, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline),
-                ),
-                Text(value, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final MatchStatus status;
-  const _StatusChip({required this.status});
-
-  (String, Color?) _labelAndColor(BuildContext context) => switch (status) {
-    .scheduled => ('Upcoming', null),
-    .inProgress => ('In progress', Colors.orange),
-    .awaitingConfirmation => ('Awaiting confirmation', Colors.orange),
-    .disputed => ('Disputed', Theme.of(context).colorScheme.error),
-    .confirmed => ('Confirmed', Colors.green),
-    .cancelled => ('Cancelled', null),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = _labelAndColor(context);
-    return Chip(
-      shape: RoundedSuperellipseBorder(borderRadius: .circular(12)),
-      label: Text(label),
-      labelStyle: color != null ? TextStyle(color: color) : null,
-      visualDensity: VisualDensity.compact,
     );
   }
 }
