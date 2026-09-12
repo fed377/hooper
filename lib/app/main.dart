@@ -12,6 +12,7 @@ import 'package:hooper/app/firebase_options.dart';
 import 'package:hooper/app/gates/auth_gate.dart';
 import 'package:hooper/core/services/fcmservice.dart';
 import 'package:hooper/core/services/google_auth_service.dart';
+import 'package:hooper/core/utils/utils.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,11 +82,14 @@ class HooperApp extends StatelessWidget {
         ),
       ),
     );
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
-      theme: theme,
-      navigatorKey: FCMService().navigatorKey,
+    return ListenableBuilder(
+      listenable: HooprColors.instance,
+      builder: (context, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: const AuthGate(),
+        theme: theme,
+        navigatorKey: FCMService().navigatorKey,
+      ),
     );
   }
 }

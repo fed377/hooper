@@ -1,5 +1,3 @@
-import 'dart:developer' show log;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,12 +20,18 @@ class LocationPickerController {
 }
 
 class LocationPicker extends ConsumerStatefulWidget {
-  const LocationPicker({super.key, required this.controller});
+  const LocationPicker({super.key, required this.controller, this.height, this.borderRadius = 34});
 
   final LocationPickerController controller;
+  final double? height;
+  final double borderRadius;
 
-  static LocationPicker locationDisplayer(GeoPoint location) {
-    return LocationPicker(controller: LocationPickerController(point: location, canMove: false));
+  static LocationPicker locationDisplayer(GeoPoint location, {double? height, double borderRadius = 34}) {
+    return LocationPicker(
+      controller: LocationPickerController(point: location, canMove: false),
+      height: height,
+      borderRadius: borderRadius,
+    );
   }
 
   static Future<GeoPoint?> pickLocation(BuildContext context, GeoPoint startLocation) async {
@@ -79,27 +83,52 @@ class LocationPicker extends ConsumerStatefulWidget {
 }
 
 class _LocationPickerState extends ConsumerState<LocationPicker> {
+  Animation<double>? _routeAnimation;
+
+  void _onRouteAnimationStatusChange(AnimationStatus status) {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation != _routeAnimation) {
+      _routeAnimation?.removeStatusListener(_onRouteAnimationStatusChange);
+      _routeAnimation = animation;
+      _routeAnimation?.addStatusListener(_onRouteAnimationStatusChange);
+    }
+  }
+
+  @override
+  void dispose() {
+    _routeAnimation?.removeStatusListener(_onRouteAnimationStatusChange);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final initialPoint = widget.controller.point;
     final styleAsync = ref.read(mapStyleProvider);
-    final route = ModalRoute.of(context);
 
-    final isAnimating =
-        route?.animation?.status == AnimationStatus.forward || route?.animation?.status == AnimationStatus.reverse;
-    log(isAnimating.toString());
+    final anim = _routeAnimation;
+    final isAnim = anim == null || anim.status == .forward || anim.status == .reverse;
+    final isThumbnail = widget.height != null && widget.height! < 100;
+    final markerSize = isThumbnail ? 18.0 : 50.0;
+    final markerBottomPadding = isThumbnail ? 4.0 : 40.0;
     return ClipRSuperellipse(
-      borderRadius: .circular(34),
+      borderRadius: .circular(widget.borderRadius),
       child: SizedBox(
-        height: MediaQuery.sizeOf(context).height / 3,
+        height: widget.height ?? MediaQuery.sizeOf(context).height / 3,
         child: Stack(
           children: [
-            if (!isAnimating)
+            if (!isAnim)
               SizedBox.expand(
                 child: SkeletonWidget<String>(
                   builder: (style) => GoogleMap(
                     style: style,
                     scrollGesturesEnabled: widget.controller.canMove,
+                    zoomGesturesEnabled: widget.controller.canMove,
                     padding: EdgeInsets.zero,
                     compassEnabled: false,
                     mapToolbarEnabled: false,
@@ -120,8 +149,8 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
                 ),
               ),
             Padding(
-              padding: EdgeInsets.only(bottom: 40.0),
-              child: const Center(child: Icon(Icons.location_on, size: 50)),
+              padding: EdgeInsets.only(bottom: markerBottomPadding),
+              child: Center(child: Icon(Icons.location_on, size: markerSize)),
             ),
           ],
         ),

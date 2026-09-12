@@ -8,7 +8,7 @@ class BlurredContainer extends StatelessWidget {
     required this.child,
     this._sigma = 30,
     this._color,
-    this.outline = true,
+    this.outline,
     this.height,
     this.borderWidth,
     required this.elevation,
@@ -19,7 +19,7 @@ class BlurredContainer extends StatelessWidget {
   final Widget child;
   final double? height;
   final Color? _color;
-  final bool outline;
+  final bool? outline;
   final double? borderWidth;
   final int elevation;
 
@@ -103,26 +103,38 @@ class BlurredContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HooprColors.instance;
-    return ClipRSuperellipse(
+    final glass = colors.glass;
+    final shouldBorder = (outline ?? glass);
+    Widget content = ClipRSuperellipse(
       borderRadius: .circular(_radius),
       child: BackdropFilter(
-        enabled: _sigma != 0 && !HooprColors.instance.glass,
+        enabled: _sigma != 0 && glass,
         filterConfig: .blur(sigmaX: _sigma, sigmaY: _sigma, tileMode: .mirror),
         child: AnimatedContainer(
           duration: Durations.medium1,
           height: height,
           decoration: ShapeDecoration(
-            color: HooprColors.instance.glass
-                ? (_color ?? colors.blurColor)
-                : (_color ?? HooprColors.instance.elevationColors[elevation]),
+            color: glass ? (_color ?? colors.blurColor) : (_color ?? HooprColors.instance.elevationColors[elevation - 1]),
             shape: RoundedSuperellipseBorder(
               borderRadius: .circular(_radius),
-              side: !outline ? .none : .new(color: colors.borderColor, width: borderWidth ?? 1),
+              side: !shouldBorder ? .none : .new(color: colors.borderColor, width: borderWidth ?? 1),
             ),
           ),
           child: child,
         ),
       ),
     );
+
+    if (!glass) {
+      content = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_radius),
+          boxShadow: const [BoxShadow(color: .fromARGB(45, 0, 0, 0), spreadRadius: -1, blurRadius: 20)],
+        ),
+        child: content,
+      );
+    }
+
+    return content;
   }
 }

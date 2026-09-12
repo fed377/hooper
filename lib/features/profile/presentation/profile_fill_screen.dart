@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooper/core/utils/date_formatter.dart';
+import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/background_image.dart';
 import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/blurred_text_field.dart';
@@ -155,7 +156,7 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          BackgroundImage(),
+          if (HooprColors.instance.glass) BackgroundImage(),
           SizedBox.expand(
             child: GestureDetector(
               onTap: FocusScope.of(context).unfocus,
@@ -282,7 +283,10 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
                 if (date?.isEmpty ?? true) return " ";
                 final datetime = tryDate(date);
                 if (datetime == null) return "Please enter a valid date";
-                if (ageOn(datetime, DateTime.now()) < 18) return "You must be at least 18 to use this app. ";
+                if (datetime.isAfter(DateTime.now())) return "Please enter a valid date";
+                final age = ageOn(datetime, DateTime.now());
+                if (age < kMinimumAge) return "You must be at least $kMinimumAge to use this app. ";
+                if (age > 100) return "Please enter a valid date";
                 return null;
               },
             ),
@@ -312,6 +316,7 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
               enabled: canEdit,
               message: "Username",
               maxLength: 12,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
               onChanged: (s) {
                 setState(() {
                   data.username = s;
@@ -341,6 +346,8 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
             BlurredFormField(
               enabled: canEdit,
               message: "Bio...",
+              maxLength: 100,
+              maxLines: 3,
               onChanged: (s) {
                 data.bio = s;
               },

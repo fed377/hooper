@@ -126,7 +126,7 @@ class MatchesList extends ConsumerWidget {
             ),
           );
           if (includeBlurredContainer) {
-            return BlurredContainer(elevation: 2, sigma: 0, child: list);
+            return BlurredContainer(elevation: 1, sigma: 0, child: list);
           } else {
             return list;
           }

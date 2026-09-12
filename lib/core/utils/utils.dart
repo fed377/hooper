@@ -1,27 +1,68 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 final String appname = "Hooper";
 
-class HooprColors {
+class HooprColors extends ChangeNotifier {
   static final HooprColors instance = HooprColors._internal();
 
   factory HooprColors() => instance;
 
   HooprColors._internal();
 
-  final Color blurColor = const .fromARGB(45, 255, 255, 255);
-  final Color emphasisColor = const .fromARGB(137, 255, 255, 255);
-  final Color borderColor = const .fromARGB(75, 255, 255, 255);
-  final Color darkenColor = const .fromARGB(34, 0, 0, 0);
+  Color _blurColor = .fromARGB(79, 255, 255, 255);
+  Color get blurColor => _blurColor;
+  set blurColor(Color value) {
+    if (_blurColor == value) return;
+    _blurColor = value;
+    notifyListeners();
+  }
 
-  static Color _c(int val) => .fromARGB(2555, val, val, val);
+  Color _emphasisColor = const .fromARGB(137, 255, 255, 255);
+  Color get emphasisColor => _emphasisColor;
+  set emphasisColor(Color value) {
+    if (_emphasisColor == value) return;
+    _emphasisColor = value;
+    notifyListeners();
+  }
 
-  final List<Color> elevationColors = [_c(255), _c(182), _c(156), _c(123), _c(96)];
+  Color _borderColor = const .fromARGB(75, 255, 255, 255);
+  Color get borderColor => _borderColor;
+  set borderColor(Color value) {
+    if (_borderColor == value) return;
+    _borderColor = value;
+    notifyListeners();
+  }
 
-  final bool glass = false;
+  Color _darkenColor = const .fromARGB(34, 0, 0, 0);
+  Color _darkenSolidColor = const .fromARGB(225, 221, 221, 221);
+  Color get darkenColor => glass ? _darkenColor : _darkenSolidColor;
+  set darkenColor(Color value) {
+    if (_darkenColor == value) return;
+    _darkenColor = value;
+    notifyListeners();
+  }
+
+  List<Color> _elevationColors = [
+    const .fromARGB(255, 255, 255, 255),
+    const .fromARGB(255, 241, 241, 241),
+    const .fromARGB(255, 227, 227, 227),
+    const .fromARGB(255, 213, 213, 213),
+    const .fromARGB(255, 199, 199, 199),
+  ];
+  List<Color> get elevationColors => _elevationColors;
+  set elevationColors(List<Color> value) {
+    _elevationColors = value;
+    notifyListeners();
+  }
+
+  bool _glass = false;
+  bool get glass => _glass;
+  set glass(bool value) {
+    if (_glass == value) return;
+    _glass = value;
+    notifyListeners();
+  }
 }
 
 String _getDaySuffix(int day) {

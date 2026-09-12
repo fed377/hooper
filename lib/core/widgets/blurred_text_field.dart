@@ -18,6 +18,7 @@ class BlurredTextField extends StatelessWidget {
     this.enabled = true,
     this.maxLines = 1,
     this.maxLength,
+    this.inputFormatters,
   });
 
   final TextEditingController? _controller;
@@ -31,6 +32,7 @@ class BlurredTextField extends StatelessWidget {
   final bool enabled;
   final int maxLines;
   final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +48,7 @@ class BlurredTextField extends StatelessWidget {
             keyboardType: keyboardType,
             autocorrect: autocorrect,
             autofillHints: autofillHints,
+            inputFormatters: inputFormatters,
             onChanged: _onChanged,
             controller: _controller,
             enabled: enabled,
@@ -89,6 +92,7 @@ class BlurredFormField extends FormField<String> {
     void Function(String)? onChanged,
     bool border = true,
     int? maxLength,
+    int maxLines = 1,
     List<TextInputFormatter>? inputFormatters,
   }) : super(
          initialValue: controller?.text,
@@ -104,6 +108,7 @@ class BlurredFormField extends FormField<String> {
                    filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
                    child: TextField(
                      maxLength: maxLength,
+                     maxLines: maxLines,
                      buildCounter: (context, {required currentLength, required isFocused, required maxLength}) => null,
                      keyboardType: keyboardType,
                      inputFormatters: inputFormatters,

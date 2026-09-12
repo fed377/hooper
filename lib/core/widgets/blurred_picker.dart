@@ -71,6 +71,9 @@ class BlurredPicker extends StatelessWidget {
                         decoration: ShapeDecoration(
                           color: colors.darkenColor,
                           shape: RoundedSuperellipseBorder(borderRadius: .circular(radius - 8)),
+                          shadows: colors.glass
+                              ? []
+                              : const [BoxShadow(color: .fromARGB(45, 0, 0, 0), spreadRadius: -1, blurRadius: 10)],
                         ),
                         margin: EdgeInsets.all(8),
                       ),
@@ -85,12 +88,10 @@ class BlurredPicker extends StatelessWidget {
               crossAxisAlignment: .stretch,
               children: List.generate(elements.length, (index) {
                 return Expanded(
-                  child: Center(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onTap(index),
-                      child: elements[index],
-                    ),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onTap(index),
+                    child: Center(child: elements[index]),
                   ),
                 );
               }),

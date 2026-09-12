@@ -31,6 +31,10 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
     }
   }
 
+  Future<void> _setGlass(UserPreference prefs, bool value) async {
+    await _savePrefs(prefs.copyWith(glass: value));
+  }
+
   @override
   Widget build(BuildContext context) {
     final prefsAsync = ref.watch(myPreferencesProvider);
@@ -58,6 +62,15 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _buildSection('Appearance', [
+          SwitchListTile(
+            title: const Text('Glass effect'),
+            subtitle: const Text('Frosted, blurred backgrounds instead of flat cards'),
+            value: prefs.glass,
+            onChanged: (v) => _setGlass(prefs, v),
+          ),
+        ]),
+        const SizedBox(height: 8),
         _buildSection('Privacy', [
           ListTile(
             title: const Text('Blocked users'),
@@ -114,6 +127,7 @@ extension PreferenceCopy on UserPreference {
     List<String>? blockedBy,
     bool? defaultFriendly,
     bool? defaultPrivate,
+    bool? glass,
   }) {
     return UserPreference(
       blockedUsers: blockedUsers ?? this.blockedUsers,
@@ -121,6 +135,7 @@ extension PreferenceCopy on UserPreference {
       userId: userId,
       defaultFriendly: defaultFriendly ?? this.defaultFriendly,
       defaultPrivate: defaultPrivate ?? this.defaultPrivate,
+      glass: glass ?? this.glass,
     );
   }
 }

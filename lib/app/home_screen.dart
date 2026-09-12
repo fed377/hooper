@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/core/services/providers.dart';
+import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/features/chat/presentation/inbox_screen.dart';
 import 'package:hooper/features/discovery/presentation/feed_screen.dart';
 import 'package:hooper/features/leaderboard/presentation/leaderboard_screen.dart';
@@ -60,6 +61,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(myPreferencesProvider).whenData((prefs) => HooprColors.instance.glass = prefs.glass);
     final cornerRadiusAsync = ref.watch(cornerRadiusProvider);
 
     final duration = Durations.medium3;

@@ -6,8 +6,10 @@ import 'package:hooper/core/widgets/custom_data_box.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:hooper/features/chat/data/chat.dart';
 import 'package:hooper/features/chat/presentation/chat_screen.dart';
+import 'package:hooper/features/discovery/data/matchup.dart';
 import 'package:hooper/features/location/presentation/location_picker.dart';
 import 'package:hooper/features/matches/data/match_repo.dart';
+import 'package:hooper/features/requests/presentation/matchup_view_screen.dart';
 
 import '../../../core/services/providers.dart';
 import '../data/match_doc.dart';
@@ -69,11 +71,10 @@ class _MatchBody extends ConsumerWidget {
     final mySide = match.mySide(uid);
     final isParticipant = mySide != null;
 
-    // final meAsync = ref.watch(matchupFromIdProvider(mySide == 'B' ? match.sideBId : match.sideAId));
-    // final otherAsync = ref.watch(matchupFromIdProvider(mySide == 'B' ? match.sideAId : match.sideBId));
-
     final nameAAsync = ref.watch(playerDisplayNameProvider(match.sideAId));
     final nameBAsync = ref.watch(playerDisplayNameProvider(match.sideBId));
+    final matchupAAsync = ref.watch(matchupFromIdProvider(match.sideAId));
+    final matchupBAsync = ref.watch(matchupFromIdProvider(match.sideBId));
 
     final canCancel =
         isParticipant && (match.status == MatchStatus.scheduled || match.status == MatchStatus.inProgress);
@@ -85,24 +86,43 @@ class _MatchBody extends ConsumerWidget {
           formatDateShort(match.scheduledTime),
           style: TextTheme.of(context).titleSmall?.copyWith(color: Colors.grey),
         ),
-        Text(
-          "${nameAAsync.when(data: (data) => data, error: (_, _) => 'ERROR', loading: () => '-----')} vs ${nameBAsync.when(data: (data) => data, error: (_, _) => 'ERROR', loading: () => '-----')}",
-          style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold),
+        Row(
+          crossAxisAlignment: .center,
+          children: [
+            Flexible(
+              child: _buildPlayerName(
+                context,
+                nameAAsync.when(data: (data) => data, error: (_, _) => 'ERROR', loading: () => '-----'),
+                matchupAAsync.value,
+              ),
+            ),
+            Text(' vs ', style: TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold)),
+            Flexible(
+              child: _buildPlayerName(
+                context,
+                nameBAsync.when(data: (data) => data, error: (_, _) => 'ERROR', loading: () => '-----'),
+                matchupBAsync.value,
+              ),
+            ),
+          ],
         ),
-        if (!isParticipant) const SizedBox(height: 16),
+        const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(
-              child: CustomDataBox(color: col, icon: Icons.place_rounded, value: match.court, label: 'Court'),
-            ),
+            Expanded(child: CustomDataBox(icon: Icons.place_rounded, value: match.court, label: 'Court')),
             const SizedBox(width: 16),
             Expanded(
-              child: CustomDataBox(
-                color: col,
-                icon: Icons.schedule_outlined,
-                value: formatDuration(match.confirmedAt!.difference(match.scheduledTime)),
-                label: 'Time',
-              ),
+              child: match.confirmedAt != null
+                  ? CustomDataBox(
+                      icon: Icons.schedule_outlined,
+                      value: formatDuration(match.confirmedAt!.difference(match.scheduledTime)),
+                      label: 'Duration',
+                    )
+                  : CustomDataBox(
+                      icon: Icons.info_outline_rounded,
+                      value: _statusLabel(match.status),
+                      label: 'Status',
+                    ),
             ),
           ],
         ),
@@ -139,14 +159,34 @@ class _MatchBody extends ConsumerWidget {
     );
   }
 
-  final col = const Color.fromARGB(255, 233, 233, 233);
+  Widget _buildPlayerName(BuildContext context, String name, Matchup? matchup) {
+    final style = TextTheme.of(context).headlineMedium?.copyWith(fontWeight: .bold);
+    if (matchup == null || matchup.id == '') {
+      return Text(name, style: style, overflow: TextOverflow.ellipsis);
+    }
+    return InkWell(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: matchup))),
+      child: Text(
+        name,
+        style: style?.copyWith(decoration: TextDecoration.underline),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  String _statusLabel(MatchStatus status) => switch (status) {
+    .scheduled => 'Scheduled',
+    .awaitingConfirmation => 'Awaiting Confirmation',
+    .confirmed => 'Confirmed',
+    .disputed => 'Disputed',
+    .cancelled => 'Cancelled',
+    .inProgress => 'In Progress',
+  };
 
   Widget _buildResult(BuildContext context, String? mySide, String? nameA, String? nameB) {
     final aWon = (match.scoreA ?? 0) > (match.scoreB ?? 0);
     return BlurredContainer(
-      elevation: 2, 
-      sigma: 0,
-      color: col,
+      elevation: 2,
       radius: 24,
       child: Padding(
         padding: const EdgeInsets.all(16),

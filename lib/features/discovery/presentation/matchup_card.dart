@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/core/services/providers.dart';
+import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:hooper/core/widgets/elo_rank_chip.dart';
@@ -30,6 +33,15 @@ class MatchupCard extends ConsumerStatefulWidget {
 }
 
 class _MatchupCardState extends ConsumerState<MatchupCard> {
+  ButtonStyle get _tintedIconStyle => IconButton.styleFrom(
+    backgroundColor: HooprColors.instance.darkenColor,
+    foregroundColor: Colors.black,
+    shape: CircleBorder(),
+    minimumSize: Size(0, 50),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    padding: EdgeInsets.all(12),
+  );
+
   @override
   Widget build(BuildContext context) {
     const double spacing = 14;
@@ -77,14 +89,9 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
                       children: [
                         _buildMenuAnchor(repo, context, match),
                         const SizedBox(width: spacing),
-                        IconButton.filledTonal(
-                          style: ElevatedButton.styleFrom(
-                            shape: CircleBorder(),
-                            minimumSize: Size(0, 50),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            padding: EdgeInsets.all(14),
-                          ),
-                          icon: Icon(Icons.chat_bubble_rounded, size: 20),
+                        IconButton(
+                          style: _tintedIconStyle,
+                          icon: Icon(Icons.chat_bubble_rounded, size: 24),
                           onPressed: widget.onChat,
                         ),
                         const SizedBox(width: spacing),
@@ -149,13 +156,8 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
         shape: WidgetStatePropertyAll(RoundedSuperellipseBorder(borderRadius: .circular(24))),
       ),
       builder: (context, controller, child) {
-        return IconButton.filledTonal(
-          style: ElevatedButton.styleFrom(
-            shape: CircleBorder(),
-            minimumSize: Size(0, 50),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            padding: EdgeInsets.all(12),
-          ),
+        return IconButton(
+          style: _tintedIconStyle,
           icon: Icon(Icons.more_horiz_rounded, size: 24),
           onPressed: () {
             controller.isOpen ? controller.close() : controller.open();
@@ -166,52 +168,114 @@ class _MatchupCardState extends ConsumerState<MatchupCard> {
   }
 
   Widget _buildRecentForm(Matchup match) {
-    return CustomPaint(
-      size: Size((match.recentForm.length * 12).toDouble(), 15),
-      painter: RecentFormPainter(recentForm: match.recentForm),
-    );
+    return _RecentFormRow(form: match.recentForm);
   }
 }
 
-class RecentFormPainter extends CustomPainter {
-  final List<bool> recentForm;
-
-  RecentFormPainter({required this.recentForm});
+class _RecentFormRow extends StatefulWidget {
+  const _RecentFormRow({required this.form});
+  final List<bool> form;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (recentForm.isEmpty) return;
+  State<_RecentFormRow> createState() => _RecentFormRowState();
+}
 
-    final double itemWidth = 10.0;
-    final double spacing = 2.0;
-    final double height = size.height;
+class _RecentFormRowState extends State<_RecentFormRow> with SingleTickerProviderStateMixin {
+  static const double _itemWidth = 10;
+  static const double _spacing = 2;
+  static const double _height = 15;
 
-    for (int i = 0; i < recentForm.length; i++) {
-      final isWin = recentForm[i];
-      final paint = Paint()
-        ..color = isWin ? Colors.green : Colors.red
-        ..style = PaintingStyle.fill;
+  late AnimationController _controller;
+  late List<bool> _previousForm;
+  late List<bool> _currentForm;
 
-      final double left = i * (itemWidth + spacing);
-      final rect = Rect.fromLTWH(left, 0, itemWidth, height);
-
-      final double leftRadius = (i == 0) ? 8.0 : 2.0;
-      final double rightRadius = (i == recentForm.length - 1) ? 8.0 : 2.0;
-
-      final rrect = RRect.fromRectAndCorners(
-        rect,
-        topLeft: Radius.circular(leftRadius),
-        bottomLeft: Radius.circular(leftRadius),
-        topRight: Radius.circular(rightRadius),
-        bottomRight: Radius.circular(rightRadius),
-      );
-
-      canvas.drawRRect(rrect, paint);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _previousForm = widget.form;
+    _currentForm = widget.form;
+    _controller = AnimationController(vsync: this, duration: Durations.medium2, value: 1);
   }
 
   @override
-  bool shouldRepaint(covariant RecentFormPainter oldDelegate) {
-    return oldDelegate.recentForm != recentForm;
+  void didUpdateWidget(covariant _RecentFormRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameForm(widget.form, _currentForm)) {
+      _previousForm = _currentForm;
+      _currentForm = widget.form;
+      _controller.forward(from: 0);
+    }
+  }
+
+  bool _sameForm(List<bool> a, List<bool> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  double _widthFor(int length) => length == 0 ? 0 : length * _itemWidth + (length - 1) * _spacing;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxLen = math.max(_previousForm.length, _currentForm.length);
+    final maxWidth = _widthFor(maxLen);
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        final fromWidth = _widthFor(_previousForm.length);
+        final toWidth = _widthFor(_currentForm.length);
+        final visibleWidth = fromWidth + (toWidth - fromWidth) * t;
+
+        return SizedBox(
+          width: maxWidth,
+          height: _height,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: visibleWidth,
+              height: _height,
+              child: ClipRSuperellipse(
+                borderRadius: .circular(8),
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: List.generate(maxLen, (i) {
+                    final d = maxLen - 1 - i;
+                    final prevExists = d < _previousForm.length;
+                    final currExists = d < _currentForm.length;
+                    final prevColor = prevExists
+                        ? (_previousForm[_previousForm.length - 1 - d] ? Colors.green : Colors.red)
+                        : null;
+                    final currColor = currExists
+                        ? (_currentForm[_currentForm.length - 1 - d] ? Colors.green : Colors.red)
+                        : null;
+                    final fromColor = prevColor ?? currColor!.withAlpha(0);
+                    final toColor = currColor ?? prevColor!.withAlpha(0);
+                    final color = Color.lerp(fromColor, toColor, t)!;
+                    return Positioned(
+                      right: d * (_itemWidth + _spacing),
+                      width: _itemWidth,
+                      height: _height,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: color, borderRadius: .circular(2)),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

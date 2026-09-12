@@ -3,7 +3,10 @@ import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/core/utils/utils.dart';
+import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:hooper/core/widgets/loading_screen_widget.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
@@ -113,28 +116,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final uid = ref.watch(currentUserIdProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        scrolledUnderElevation: 0,
-        title: chatAsync.maybeWhen(
-          data: (chat) {
-            final otherId = chat.otherParticipant(uid);
-            final nameAsync = ref.watch(playerDisplayNameProvider(otherId));
-            return Text(nameAsync.value ?? 'Loading…');
-          },
-          orElse: () => const Text('Chat'),
-        ),
-      ),
       body: Stack(
         children: [
-          SizedBox.expand(
-            child: widget.bannerUrl == null
-                ? const SizedBox()
-                : Hero(
-                    transitionOnUserGestures: true,
-                    tag: widget.heroTag ?? "banner",
-                    child: Image(image: ref.watch(imageProviderFamily(widget.bannerUrl!)), fit: .cover),
-                  ),
-          ),
+          _buildHeroBackground(),
           chatAsync.when(
             loading: () => const SplashScreen(),
             error: (err, st) {
@@ -142,10 +126,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               return Center(child: Text('Could not load this chat: $err'));
             },
             data: (chat) {
-              return SizedBox.expand(child: _buildBody(chat, uid, chat.otherParticipant(uid)));
+              final otherId = chat.otherParticipant(uid);
+              return Stack(
+                children: [
+                  if (widget.bannerUrl == null) _buildFallbackBackground(otherId),
+                  SafeArea(child: _buildBody(chat, uid, otherId)),
+                ],
+              );
             },
           ),
         ],
+      ),
+    );
+  }
+
+  // Mounted outside chatAsync so it's present on the very first frame — required for the
+  // Hero flight from the matchup card to land correctly. Sharp unless glass mode is on.
+  Widget _buildHeroBackground() {
+    if (widget.bannerUrl == null) return const SizedBox.shrink();
+    final image = Image(image: ref.watch(imageProviderFamily(widget.bannerUrl!)), fit: .cover);
+    return SizedBox.expand(
+      child: Hero(
+        transitionOnUserGestures: true,
+        tag: widget.heroTag ?? "banner",
+        child: HooprColors.instance.glass
+            ? ClipRect(
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20, tileMode: .mirror),
+                  child: image,
+                ),
+              )
+            : image,
+      ),
+    );
+  }
+
+  Widget _buildFallbackBackground(String otherId) {
+    if (!HooprColors.instance.glass) return const SizedBox.shrink();
+    final url = ref.watch(playerBannerUrlProvider(otherId)).value;
+    if (url == null || url.isEmpty) return const SizedBox.shrink();
+    return SizedBox.expand(
+      child: ClipRect(
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20, tileMode: .mirror),
+          child: Image(image: ref.watch(imageProviderFamily(url)), fit: .cover),
+        ),
       ),
     );
   }
@@ -155,64 +180,82 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Column(
       children: [
-        Expanded(
-          child: Stack(
-            children: [
-              SizedBox.expand(child: _buildChat(uid, otherId)),
-              // SizedBox.expand(
-              //   child: IgnorePointer(
-              //     child: Container(
-              //       decoration: BoxDecoration(
-              //         gradient: LinearGradient(
-              //           colors: [const Color.fromARGB(255, 0, 0, 0), const Color.fromARGB(0, 255, 255, 255)],
-              //           begin: Alignment.topCenter,
-              //           end: Alignment.bottomCenter,
-              //           stops: [0, 0.3],
-              //         ),
-              //       ),
-              //     ),
-              //   ),
-              // ),
-              if (requestId != null && requestId.isNotEmpty) _buildDetailsSection(requestId),
-            ],
-          ),
-        ),
+        _buildHeader(otherId, requestId),
+        Expanded(child: _buildChat(uid, otherId)),
         if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId) else const SizedBox(height: 10),
       ],
     );
   }
 
-  Widget _buildDetailsSection(String requestId) {
+  Widget _buildHeader(String otherId, String? requestId) {
+    final nameAsync = ref.watch(playerDisplayNameProvider(otherId));
+    final hasRequest = requestId != null && requestId.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: BlurredContainer(
+        elevation: 2,
+        radius: 24,
+        child: Column(
+          mainAxisSize: .min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    padding: .zero,
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      nameAsync.value ?? 'Loading…',
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: .bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (hasRequest) ...[
+              Divider(height: 1, color: HooprColors.instance.borderColor),
+              _buildRequestDetails(requestId),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequestDetails(String requestId) {
     final requestAsync = ref.watch(matchRequestProvider(requestId));
     return SkeletonWidget<MatchRequestDoc>(
       val: requestAsync,
       dummyData: MatchRequestDoc.dummy(),
-      builder: (request) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: ClipRSuperellipse(
-          borderRadius: .circular(24),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              _DetailsWidget(
-                request: request,
-                editing: _editingDetails,
-                busy: _busy,
-                courtController: _courtController,
-                editedTime: _editedTime,
-                onEdit: () => _startEditingDetails(request),
-                onPickTime: _pickEditedTime,
-                onSave: () => _saveDetails(requestId),
-                onCancelEdit: () => setState(() => _editingDetails = false),
-                onPickLocation: () async {
-                  final location = await LocationPicker.pickLocation(context, _chosenLocation ?? request.location);
-                  if (location != null) _chosenLocation = location;
-                },
-              ),
-              _StatusBanner(status: request.status),
-            ],
+      builder: (request) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: _DetailsWidget(
+              request: request,
+              editing: _editingDetails,
+              busy: _busy,
+              courtController: _courtController,
+              editedTime: _editedTime,
+              onEdit: () => _startEditingDetails(request),
+              onPickTime: _pickEditedTime,
+              onSave: () => _saveDetails(requestId),
+              onCancelEdit: () => setState(() => _editingDetails = false),
+              onPickLocation: () async {
+                final location = await LocationPicker.pickLocation(context, _chosenLocation ?? request.location);
+                if (location != null) _chosenLocation = location;
+              },
+            ),
           ),
-        ),
+          _StatusBanner(status: request.status),
+        ],
       ),
     );
   }
@@ -272,6 +315,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: BlurredTextField(
               controller: _messageController,
               message: _sendingMessage ? 'Sending...' : 'Message',
+              inputFormatters: [FilteringTextInputFormatter.deny('\$')],
               onSubmitted: (_) => _sendingMessage ? null : _send(),
             ),
           ),
@@ -384,16 +428,22 @@ class _StatusBanner extends StatelessWidget {
       .finished => "This match is finished",
     };
 
-    return Container(
-      decoration: ShapeDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Container(
+        decoration: ShapeDecoration(
+          color: colorScheme.errorContainer.withAlpha(150),
+          shape: RoundedSuperellipseBorder(borderRadius: .circular(16)),
+        ),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: colorScheme.onErrorContainer),
         ),
       ),
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      child: Text(message, textAlign: TextAlign.center),
     );
   }
 }
@@ -427,62 +477,60 @@ class _DetailsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final canEdit = request.status == MatchRequestStatus.pending;
 
-    return ClipRSuperellipse(
-      borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          color: const Color.fromARGB(62, 255, 255, 255),
-          child: editing
-              ? Column(
-                  crossAxisAlignment: .stretch,
-                  children: [
-                    TextField(
-                      controller: courtController,
-                      decoration: const InputDecoration(labelText: 'Court', isDense: true),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
-                    const SizedBox(height: 8),
-                    OutlinedButton(onPressed: onPickLocation, child: Text('Choose new location')),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(onPressed: busy ? null : onCancelEdit, child: const Text('Cancel')),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: FilledButton(onPressed: busy ? null : onSave, child: const Text('Save')),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: .start,
-                        children: [
-                          Text(request.court, style: Theme.of(context).textTheme.titleSmall),
-                          Text(
-                            request.scheduledTime.toLocal().toString(),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (canEdit)
-                      DarkIconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), shadow: false),
-                    const SizedBox(width: 12),
-                    DarkIconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded), shadow: false),
-                  ],
-                ),
+    if (editing) {
+      return Column(
+        crossAxisAlignment: .stretch,
+        children: [
+          TextField(
+            controller: courtController,
+            decoration: const InputDecoration(labelText: 'Court', isDense: true),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: onPickLocation, child: Text('Choose new location')),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(onPressed: busy ? null : onCancelEdit, child: const Text('Cancel')),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(onPressed: busy ? null : onSave, child: const Text('Save')),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: .center,
+      children: [
+        ClipRSuperellipse(
+          borderRadius: .circular(16),
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: LocationPicker.locationDisplayer(request.location, height: 56, borderRadius: 16),
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: .start,
+            mainAxisSize: .min,
+            children: [
+              Text(request.court, style: Theme.of(context).textTheme.titleSmall),
+              Text(request.scheduledTime.toLocal().toString(), style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+        if (canEdit) DarkIconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), shadow: false),
+        const SizedBox(width: 8),
+        DarkIconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded), shadow: false),
+      ],
     );
   }
 

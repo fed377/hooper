@@ -4,6 +4,7 @@ class UserPreference {
   final String userId;
   final bool defaultFriendly;
   final bool defaultPrivate;
+  final bool glass;
 
   UserPreference({
     required this.blockedUsers,
@@ -11,6 +12,7 @@ class UserPreference {
     required this.userId,
     this.defaultFriendly = false,
     this.defaultPrivate = false,
+    this.glass = false,
   });
 
   factory UserPreference.fromJson(Map<String, dynamic> data) {
@@ -20,6 +22,7 @@ class UserPreference {
       userId: data['userId'] as String,
       defaultFriendly: data['defaultFriendly'] as bool? ?? false,
       defaultPrivate: data['defaultPrivate'] as bool? ?? false,
+      glass: data['glass'] as bool? ?? false,
     );
   }
 
@@ -29,5 +32,6 @@ class UserPreference {
         'blockedBy': blockedBy,
         'defaultFriendly': defaultFriendly,
         'defaultPrivate': defaultPrivate,
+        'glass': glass,
       };
 }

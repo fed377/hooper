@@ -28,4 +28,36 @@ class FirestoreLeaderboardRepository {
       hasMore: snap.docs.length == pageSize,
     );
   }
+
+  Future<LeaderboardPage> fetchAroundMe({required int myElo, int windowSize = 20}) async {
+    final halfWindow = (windowSize / 2).ceil();
+
+    final aboveSnap = await _firestore
+        .collection('playerProfiles')
+        .where('elo', isGreaterThan: myElo)
+        .orderBy('elo')
+        .limit(halfWindow)
+        .get();
+
+    final remaining = windowSize - aboveSnap.docs.length;
+    final belowOrEqualSnap = await _firestore
+        .collection('playerProfiles')
+        .where('elo', isLessThanOrEqualTo: myElo)
+        .orderBy('elo', descending: true)
+        .limit(remaining > 0 ? remaining : 1)
+        .get();
+
+    final docs = [...aboveSnap.docs.reversed, ...belowOrEqualSnap.docs];
+    if (docs.isEmpty) {
+      return LeaderboardPage(entries: [], lastDocument: null, hasMore: false);
+    }
+
+    final topElo = docs.first.data()['elo'] as int;
+    final aboveCount = await _firestore.collection('playerProfiles').where('elo', isGreaterThan: topElo).count().get();
+    final startRank = (aboveCount.count ?? 0) + 1;
+
+    final entries = docs.map((d) => Matchup.fromJson({...d.data(), 'id': d.id, 'distanceKm': 10})).toList();
+
+    return LeaderboardPage(entries: entries, lastDocument: null, hasMore: false, startRank: startRank);
+  }
 }
