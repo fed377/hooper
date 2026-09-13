@@ -20,13 +20,22 @@ class LocationPickerController {
 }
 
 class LocationPicker extends ConsumerStatefulWidget {
-  const LocationPicker({super.key, required this.controller, this.height, this.borderRadius = 34});
+  const LocationPicker({
+    super.key,
+    required this.controller,
+    this.height,
+    this.borderRadius = 34,
+  });
 
   final LocationPickerController controller;
   final double? height;
   final double borderRadius;
 
-  static LocationPicker locationDisplayer(GeoPoint location, {double? height, double borderRadius = 34}) {
+  static LocationPicker locationDisplayer(
+    GeoPoint location, {
+    double? height,
+    double borderRadius = 34,
+  }) {
     return LocationPicker(
       controller: LocationPickerController(point: location, canMove: false),
       height: height,
@@ -34,8 +43,13 @@ class LocationPicker extends ConsumerStatefulWidget {
     );
   }
 
-  static Future<GeoPoint?> pickLocation(BuildContext context, GeoPoint startLocation) async {
-    final LocationPickerController controller = LocationPickerController(point: startLocation);
+  static Future<GeoPoint?> pickLocation(
+    BuildContext context,
+    GeoPoint startLocation,
+  ) async {
+    final LocationPickerController controller = LocationPickerController(
+      point: startLocation,
+    );
     return await showModalBottomSheet(
       enableDrag: false,
       isDismissible: true,
@@ -86,7 +100,13 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
   Animation<double>? _routeAnimation;
 
   void _onRouteAnimationStatusChange(AnimationStatus status) {
-    if (mounted) setState(() {});
+    // The status notification can land while an unrelated widget is mid-build
+    // (e.g. this route's own transition finishing while a Firestore update
+    // rebuilds this widget's parent), which would throw "setState() called
+    // during build". Defer to the next frame so it's always safe.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -112,7 +132,8 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
     final styleAsync = ref.read(mapStyleProvider);
 
     final anim = _routeAnimation;
-    final isAnim = anim == null || anim.status == .forward || anim.status == .reverse;
+    final isAnim =
+        anim == null || anim.status == .forward || anim.status == .reverse;
     final isThumbnail = widget.height != null && widget.height! < 100;
     final markerSize = isThumbnail ? 18.0 : 50.0;
     final markerBottomPadding = isThumbnail ? 4.0 : 40.0;
@@ -136,12 +157,18 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
                     tiltGesturesEnabled: false,
                     minMaxZoomPreference: MinMaxZoomPreference(5, 18),
                     initialCameraPosition: CameraPosition(
-                      target: LatLng(initialPoint.latitude, initialPoint.longitude),
+                      target: LatLng(
+                        initialPoint.latitude,
+                        initialPoint.longitude,
+                      ),
                       zoom: 8,
                     ),
                     zoomControlsEnabled: false,
                     onCameraMove: (position) {
-                      widget.controller.point = GeoPoint(position.target.latitude, position.target.longitude);
+                      widget.controller.point = GeoPoint(
+                        position.target.latitude,
+                        position.target.longitude,
+                      );
                     },
                   ),
                   val: styleAsync,

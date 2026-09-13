@@ -24,7 +24,7 @@ class MatchesList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = HooprColors.instance;
+    final colors = HooprTheme.instance;
     return SkeletonWidget(
       val: matchesAsync,
       dummyData: List.generate(2, (_) => ''),

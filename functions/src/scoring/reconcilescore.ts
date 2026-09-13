@@ -89,7 +89,7 @@ export const reconcileScore = onDocumentUpdated(
         ),
       });
       tx.update(sideBRef, {
-        elo: bResult.newRating,
+        elo: friendlyMatch ? bData.elo : bResult.newRating,
         gamesPlayed1v1: FieldValue.increment(1),
         recentForm: friendlyMatch ? bRecentForm : bFormUpdated,
         lockedMatchIds: FieldValue.arrayRemove(event.params.matchId),

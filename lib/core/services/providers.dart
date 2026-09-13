@@ -10,6 +10,7 @@ import 'package:hooper/features/auth/providers/auth_state_provider.dart';
 import 'package:hooper/features/chat/data/chat.dart';
 import 'package:hooper/features/chat/data/chat_message.dart';
 import 'package:hooper/features/leaderboard/data/leaderboard_repo.dart';
+import 'package:hooper/features/profile/data/elo_history.dart';
 import 'package:hooper/features/profile/data/player_profile.dart';
 import 'package:hooper/features/profile/data/preferences_repo.dart';
 import 'package:hooper/features/profile/data/profile_repo.dart';
@@ -41,24 +42,50 @@ final backgroundImageProvider = Provider<ImageProvider>((ref) {
 
 // --- User Data --------------------------------------------------------
 
-final profileExistsProvider = StreamProvider.autoDispose.family<bool, String>((ref, uid) {
-  return FirebaseFirestore.instance.collection('playerProfiles').doc(uid).snapshots().map((snap) => snap.exists);
+final profileExistsProvider = StreamProvider.autoDispose.family<bool, String>((
+  ref,
+  uid,
+) {
+  return FirebaseFirestore.instance
+      .collection('playerProfiles')
+      .doc(uid)
+      .snapshots()
+      .map((snap) => snap.exists);
 });
 
-final isNameTakenProvider = StreamProvider.autoDispose.family<bool, String>((ref, name) {
-  return FirebaseFirestore.instance.collection('usernames').doc(name).snapshots().map((snap) => snap.exists);
+final isNameTakenProvider = StreamProvider.autoDispose.family<bool, String>((
+  ref,
+  name,
+) {
+  return FirebaseFirestore.instance
+      .collection('usernames')
+      .doc(name)
+      .snapshots()
+      .map((snap) => snap.exists);
 });
 
-final completedMatchesProvider = FutureProvider.family<List<String>, String>((ref, uid) async {
-  final x = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
+final completedMatchesProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  uid,
+) async {
+  final x = await FirebaseFirestore.instance
+      .collection('playerProfiles')
+      .doc(uid)
+      .get();
   return (x.data()?['completedMatches'] as List?)?.cast<String>() ?? [];
 });
 
 // (String, String) => (chatId, userId)
-final lastMessageIdRead = FutureProvider.autoDispose.family<String?, SString>((ref, data) async {
+final lastMessageIdRead = FutureProvider.autoDispose.family<String?, SString>((
+  ref,
+  data,
+) async {
   final chatId = data.$1;
   final userId = data.$2;
-  final chat = await FirebaseFirestore.instance.collection('chats').doc(chatId).get();
+  final chat = await FirebaseFirestore.instance
+      .collection('chats')
+      .doc(chatId)
+      .get();
   final map = (chat.data()?['lastMessageRead'] as Map?)?.cast<String, String>();
   return map?[userId];
 });
@@ -71,17 +98,26 @@ final myLocationProvider = FutureProvider<Position>((ref) async {
 
 // --- Repositories -------------------------------------------------------
 
-final matchupRepositoryProvider = Provider<FirestoreMatchupRepository>((ref) => FirestoreMatchupRepository());
-
-final matchRepositoryProvider = Provider<FirestoreMatchRepository>((ref) => FirestoreMatchRepository());
-
-final playerProfileRepositoryProvider = Provider<FirestorePlayerProfileRepository>(
-  (ref) => FirestorePlayerProfileRepository(),
+final matchupRepositoryProvider = Provider<FirestoreMatchupRepository>(
+  (ref) => FirestoreMatchupRepository(),
 );
 
-final preferencesRepoProvider = Provider<FirestorePreferencesRepository>((ref) => FirestorePreferencesRepository());
+final matchRepositoryProvider = Provider<FirestoreMatchRepository>(
+  (ref) => FirestoreMatchRepository(),
+);
 
-final leaderboardRepoProvider = Provider<FirestoreLeaderboardRepository>((ref) => FirestoreLeaderboardRepository());
+final playerProfileRepositoryProvider =
+    Provider<FirestorePlayerProfileRepository>(
+      (ref) => FirestorePlayerProfileRepository(),
+    );
+
+final preferencesRepoProvider = Provider<FirestorePreferencesRepository>(
+  (ref) => FirestorePreferencesRepository(),
+);
+
+final leaderboardRepoProvider = Provider<FirestoreLeaderboardRepository>(
+  (ref) => FirestoreLeaderboardRepository(),
+);
 
 // --- Preferences --------------------------------------------------------
 
@@ -99,38 +135,89 @@ final myPlayerProfileProvider = StreamProvider<PlayerProfile>((ref) {
   return repo.watchMyProfile(uid);
 });
 
-final playerDisplayNameProvider = FutureProvider.family<String, String>((ref, uid) async {
-  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  return doc.data()?['displayName'] as String? ?? 'Player';
+// Recent ELO history for any uid, not just the current user — matches (and
+// therefore their rating deltas) are visible to any signed-in user per the
+// firestore rules, so this works from anyone's profile.
+final eloHistoryProvider = StreamProvider.autoDispose
+    .family<List<EloHistoryEntry>, String>((ref, uid) {
+      return FirebaseFirestore.instance
+          .collection('playerProfiles')
+          .doc(uid)
+          .collection('eloHistory')
+          .orderBy('timestamp', descending: true)
+          .limit(20)
+          .snapshots()
+          .map(
+            (snap) => snap.docs
+                .map((d) => EloHistoryEntry.fromJson(d.data()))
+                .toList(),
+          );
+    });
+
+// Shared per-uid document fetch: playerDisplayNameProvider/playerPhotoUrlProvider/
+// playerBannerUrlProvider/playerEloProvider/playerDiscoverRadiusProvider/rankProvider
+// all used to issue their own independent `.get()` for the same uid — e.g. a chat
+// list row watching both display name and photo would hit Firestore twice for the
+// same doc. Routing them all through this one cached fetch means Riverpod dedupes
+// concurrent/repeated reads of the same uid into a single round-trip.
+final _playerProfileDocProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>?, String>((ref, uid) async {
+      final doc = await FirebaseFirestore.instance
+          .collection('playerProfiles')
+          .doc(uid)
+          .get();
+      return doc.data();
+    });
+
+final playerDisplayNameProvider = FutureProvider.family<String, String>((
+  ref,
+  uid,
+) async {
+  final data = await ref.watch(_playerProfileDocProvider(uid).future);
+  return data?['displayName'] as String? ?? 'Player';
 });
 
-final playerPhotoUrlProvider = FutureProvider.family<String, String>((ref, uid) async {
-  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  return doc.data()?['photoUrl'] as String? ?? '';
+final playerPhotoUrlProvider = FutureProvider.family<String, String>((
+  ref,
+  uid,
+) async {
+  final data = await ref.watch(_playerProfileDocProvider(uid).future);
+  return data?['photoUrl'] as String? ?? '';
 });
 
-final playerBannerUrlProvider = FutureProvider.autoDispose.family<String, String>((ref, uid) async {
-  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  return doc.data()?['bannerUrl'] as String? ?? '';
+final playerBannerUrlProvider = FutureProvider.autoDispose
+    .family<String, String>((ref, uid) async {
+      final data = await ref.watch(_playerProfileDocProvider(uid).future);
+      return data?['bannerUrl'] as String? ?? '';
+    });
+
+final playerEloProvider = FutureProvider.autoDispose.family<int, String>((
+  ref,
+  uid,
+) async {
+  final data = await ref.watch(_playerProfileDocProvider(uid).future);
+  return data?['elo'] as int? ?? 0;
 });
 
-final playerEloProvider = FutureProvider.autoDispose.family<int, String>((ref, uid) async {
-  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  return doc.data()?['elo'] as int? ?? 0;
-});
-
-final imageProviderFamily = Provider.family<ImageProvider, String>((ref, imageUrl) {
+final imageProviderFamily = Provider.family<ImageProvider, String>((
+  ref,
+  imageUrl,
+) {
   return CachedNetworkImageProvider(imageUrl);
 });
 
-final playerDiscoverRadiusProvider = FutureProvider.autoDispose.family<int, String>((ref, uid) async {
-  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  return doc.data()?['visibilityRadius'] as int? ?? 10;
-});
+final playerDiscoverRadiusProvider = FutureProvider.autoDispose
+    .family<int, String>((ref, uid) async {
+      final data = await ref.watch(_playerProfileDocProvider(uid).future);
+      return data?['visibilityRadius'] as int? ?? 10;
+    });
 
-final rankProvider = FutureProvider.family<(int, int), String>((ref, uid) async {
-  final doc = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  final elo = doc.data()?['elo'] as int?;
+final rankProvider = FutureProvider.family<(int, int), String>((
+  ref,
+  uid,
+) async {
+  final data = await ref.watch(_playerProfileDocProvider(uid).future);
+  final elo = data?['elo'] as int?;
   if (elo == null) return (-1, -1);
   final upperRank = await FirebaseFirestore.instance
       .collection('playerProfiles')
@@ -159,18 +246,23 @@ final nearbyMatchupsProvider = StreamProvider<List<Matchup>>((ref) {
   final center = ref.watch(searchCenterProvider);
   final uid = ref.watch(currentUserIdProvider);
   try {
-    return repo.nearbyMatchups(center: center, radiusKm: 250, excludeUserId: uid);
+    return repo.nearbyMatchups(
+      center: center,
+      radiusKm: 250,
+      excludeUserId: uid,
+    );
   } catch (e) {
     log(e.toString());
     return Stream.value([]);
   }
 });
 
-final matchupFromIdProvider = FutureProvider.autoDispose.family<Matchup, String>((ref, uid) async {
-  if (uid == '') return Matchup.dummy();
-  final snap = await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).get();
-  return Matchup.fromJson({...snap.data()!, 'id': snap.id, 'distanceKm': 100});
-});
+final matchupFromIdProvider = FutureProvider.autoDispose
+    .family<Matchup, String>((ref, uid) async {
+      if (uid == '') return Matchup.dummy();
+      final data = await ref.watch(_playerProfileDocProvider(uid).future);
+      return Matchup.fromJson({...data!, 'id': uid, 'distanceKm': 100});
+    });
 
 class MatchOpponent {
   final MatchDoc match;
@@ -183,21 +275,32 @@ class MatchOpponent {
   MatchOpponent({required this.match, required this.matchup});
 }
 
-final matchAndMatchupProvider = FutureProvider.autoDispose.family<MatchOpponent, SString>((ref, SString param) async {
-  final String matchId;
-  final String uid;
-  (matchId, uid) = param;
+final matchAndMatchupProvider = FutureProvider.autoDispose
+    .family<MatchOpponent, SString>((ref, SString param) async {
+      final String matchId;
+      final String uid;
+      (matchId, uid) = param;
 
-  final matchDoc = await FirebaseFirestore.instance.collection('matches').doc(matchId).get();
-  final match = MatchDoc.fromJson({...matchDoc.data()!, 'id': matchId});
+      final matchDoc = await FirebaseFirestore.instance
+          .collection('matches')
+          .doc(matchId)
+          .get();
+      final match = MatchDoc.fromJson({...matchDoc.data()!, 'id': matchId});
 
-  final opponentUid = match.otherParticipant(uid);
+      final opponentUid = match.otherParticipant(uid);
 
-  final opponentDoc = await FirebaseFirestore.instance.collection('playerProfiles').doc(opponentUid).get();
-  final opponent = Matchup.fromJson({...opponentDoc.data()!, 'id': opponentUid, 'distanceKm': 100});
+      final opponentDoc = await FirebaseFirestore.instance
+          .collection('playerProfiles')
+          .doc(opponentUid)
+          .get();
+      final opponent = Matchup.fromJson({
+        ...opponentDoc.data()!,
+        'id': opponentUid,
+        'distanceKm': 100,
+      });
 
-  return MatchOpponent(match: match, matchup: opponent);
-});
+      return MatchOpponent(match: match, matchup: opponent);
+    });
 
 // --- Match lifecycle -------------------------------------------------------
 
@@ -219,22 +322,30 @@ final myChatsProvider = StreamProvider<List<Chat>>((ref) {
   return repo.watchMyChats(uid);
 });
 
-final chatProvider = StreamProvider.autoDispose.family<Chat, String>((ref, chatId) {
+final chatProvider = StreamProvider.autoDispose.family<Chat, String>((
+  ref,
+  chatId,
+) {
   final repo = ref.watch(matchRepositoryProvider);
   return repo.watchChat(chatId);
 });
 
-final matchRequestProvider = StreamProvider.autoDispose.family<MatchRequestDoc, String>((ref, requestId) {
-  final repo = ref.watch(matchRepositoryProvider);
-  return repo.watchMatchRequest(requestId);
-});
+final matchRequestProvider = StreamProvider.autoDispose
+    .family<MatchRequestDoc, String>((ref, requestId) {
+      final repo = ref.watch(matchRepositoryProvider);
+      return repo.watchMatchRequest(requestId);
+    });
 
-final chatMessagesProvider = StreamProvider.autoDispose.family<List<ChatMessage>, String>((ref, chatId) {
-  final repo = ref.watch(matchRepositoryProvider);
-  return repo.watchMessages(chatId);
-});
+final chatMessagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessage>, String>((ref, chatId) {
+      final repo = ref.watch(matchRepositoryProvider);
+      return repo.watchMessages(chatId);
+    });
 
-final matchProvider = StreamProvider.autoDispose.family<MatchDoc, String>((ref, matchId) {
+final matchProvider = StreamProvider.autoDispose.family<MatchDoc, String>((
+  ref,
+  matchId,
+) {
   final repo = ref.watch(matchRepositoryProvider);
   return repo.watchMatch(matchId);
 });
@@ -245,10 +356,10 @@ final lockedMatchesProvider = StreamProvider<List<MatchDoc>?>((ref) {
   return repo.watchLockedMatches(uid);
 });
 
+// Empty string (not a thrown error) when signed out, so widgets still mid-
+// teardown right after sign-out (before AuthGate swaps them out) don't crash
+// with a ProviderException — they read a harmless '' for one frame instead.
 final currentUserIdProvider = Provider<String>((ref) {
   final user = ref.watch(authStateProvider).value;
-  if (user == null) {
-    throw StateError('currentUserIdProvider read before sign-in.');
-  }
-  return user.uid;
+  return user?.uid ?? '';
 });

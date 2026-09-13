@@ -3,66 +3,54 @@ import 'package:intl/intl.dart';
 
 final String appname = "Hooper";
 
-class HooprColors extends ChangeNotifier {
-  static final HooprColors instance = HooprColors._internal();
+class HooprTheme {
+  static final HooprTheme instance = HooprTheme._internal();
 
-  factory HooprColors() => instance;
+  factory HooprTheme() => instance;
 
-  HooprColors._internal();
+  HooprTheme._internal();
 
-  Color _blurColor = .fromARGB(79, 255, 255, 255);
-  Color get blurColor => _blurColor;
-  set blurColor(Color value) {
-    if (_blurColor == value) return;
-    _blurColor = value;
-    notifyListeners();
-  }
-
-  Color _emphasisColor = const .fromARGB(137, 255, 255, 255);
-  Color get emphasisColor => _emphasisColor;
-  set emphasisColor(Color value) {
-    if (_emphasisColor == value) return;
-    _emphasisColor = value;
-    notifyListeners();
-  }
-
-  Color _borderColor = const .fromARGB(75, 255, 255, 255);
-  Color get borderColor => _borderColor;
-  set borderColor(Color value) {
-    if (_borderColor == value) return;
-    _borderColor = value;
-    notifyListeners();
-  }
+  Color blurColor = .fromARGB(79, 255, 255, 255);
+  Color emphasisColor = const .fromARGB(137, 255, 255, 255);
+  Color borderColor = const .fromARGB(75, 255, 255, 255);
 
   Color _darkenColor = const .fromARGB(34, 0, 0, 0);
-  Color _darkenSolidColor = const .fromARGB(225, 221, 221, 221);
+  final Color _darkenSolidColor = const .fromARGB(225, 221, 221, 221);
   Color get darkenColor => glass ? _darkenColor : _darkenSolidColor;
-  set darkenColor(Color value) {
-    if (_darkenColor == value) return;
-    _darkenColor = value;
-    notifyListeners();
-  }
+  set darkenColor(Color value) => _darkenColor = value;
 
-  List<Color> _elevationColors = [
+  List<Color> elevationColors = [
     const .fromARGB(255, 255, 255, 255),
     const .fromARGB(255, 241, 241, 241),
     const .fromARGB(255, 227, 227, 227),
     const .fromARGB(255, 213, 213, 213),
     const .fromARGB(255, 199, 199, 199),
   ];
-  List<Color> get elevationColors => _elevationColors;
-  set elevationColors(List<Color> value) {
-    _elevationColors = value;
-    notifyListeners();
-  }
 
-  bool _glass = false;
-  bool get glass => _glass;
-  set glass(bool value) {
-    if (_glass == value) return;
-    _glass = value;
-    notifyListeners();
-  }
+  final ValueNotifier<bool> glassNotifier = ValueNotifier(false);
+  bool get glass => glassNotifier.value;
+  set glass(bool value) => glassNotifier.value = value;
+
+  BoxShadow blurredContainerShadow = const BoxShadow(
+    color: .fromARGB(45, 0, 0, 0),
+    spreadRadius: -1,
+    blurRadius: 20,
+  );
+  BoxShadow textFieldShadow = const BoxShadow(
+    color: .fromARGB(45, 0, 0, 0),
+    spreadRadius: -1,
+    blurRadius: 20,
+  );
+  BoxShadow pickerShadow = const BoxShadow(
+    color: .fromARGB(45, 0, 0, 0),
+    spreadRadius: -1,
+    blurRadius: 10,
+  );
+  BoxShadow filledButtonShadow = const BoxShadow(
+    color: .fromARGB(45, 0, 0, 0),
+    spreadRadius: -1,
+    blurRadius: 20,
+  );
 }
 
 String _getDaySuffix(int day) {
@@ -90,10 +78,13 @@ String capitalize(String? inp) {
   return "${inp[0].toUpperCase()}${inp.substring(1)}";
 }
 
+final DateFormat _monthYearFormat = DateFormat('MMMM yyyy');
+final DateFormat _timeFormat = DateFormat('h:mm a');
+
 String formatDate(DateTime date) {
   String suffix = _getDaySuffix(date.day);
-  String monthYear = DateFormat('MMMM yyyy').format(date);
-  String time = DateFormat('h:mm a').format(date);
+  String monthYear = _monthYearFormat.format(date);
+  String time = _timeFormat.format(date);
   return '${date.day}$suffix $monthYear at $time';
 }
 

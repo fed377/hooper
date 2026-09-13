@@ -3,7 +3,7 @@ import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/blurred_container.dart';
 
 class BlurredPicker extends StatelessWidget {
-  new({
+  const new({
     super.key,
     required this.radius,
     required this.height,
@@ -32,18 +32,21 @@ class BlurredPicker extends StatelessWidget {
   final void Function(int) onTap;
   final bool includeBlurredContainer;
 
-  final TweenSequence<double> heightTweenSequence = TweenSequence<double>([
+  // Static: these don't depend on any instance state, so building a fresh
+  // TweenSequence (and its Tween/CurveTween tree) on every rebuild — this
+  // widget rebuilds on every scroll frame via the bottom nav — was wasted work.
+  static final TweenSequence<double> _heightTweenSequence = TweenSequence<double>([
     TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0.9).chain(CurveTween(curve: Curves.easeInOut)), weight: 1),
     TweenSequenceItem(tween: Tween<double>(begin: 0.9, end: 1).chain(CurveTween(curve: Curves.easeInOut)), weight: 1),
   ]);
-  final TweenSequence<double> widthTweenSequence = TweenSequence<double>([
+  static final TweenSequence<double> _widthTweenSequence = TweenSequence<double>([
     TweenSequenceItem(tween: Tween<double>(begin: 1, end: 1.2).chain(CurveTween(curve: Curves.easeInOut)), weight: 1),
     TweenSequenceItem(tween: Tween<double>(begin: 1.2, end: 1).chain(CurveTween(curve: Curves.easeInOut)), weight: 1),
   ]);
 
   @override
   Widget build(BuildContext context) {
-    final colors = HooprColors.instance;
+    final colors = HooprTheme.instance;
     late double prog;
     if (startIndex != null) {
       final dist = endIndex! - startIndex!;
@@ -65,15 +68,13 @@ class BlurredPicker extends StatelessWidget {
                   fit: .deferToChild,
                   child: Center(
                     child: FractionallySizedBox(
-                      heightFactor: 1 - (1 - heightTweenSequence.transform(prog)) * stretchFactor,
-                      widthFactor: (1 - widthTweenSequence.transform(prog)).abs() * stretchFactor + 1,
+                      heightFactor: 1 - (1 - _heightTweenSequence.transform(prog)) * stretchFactor,
+                      widthFactor: (1 - _widthTweenSequence.transform(prog)).abs() * stretchFactor + 1,
                       child: Container(
                         decoration: ShapeDecoration(
                           color: colors.darkenColor,
                           shape: RoundedSuperellipseBorder(borderRadius: .circular(radius - 8)),
-                          shadows: colors.glass
-                              ? []
-                              : const [BoxShadow(color: .fromARGB(45, 0, 0, 0), spreadRadius: -1, blurRadius: 10)],
+                          shadows: colors.glass ? [] : [colors.pickerShadow],
                         ),
                         margin: EdgeInsets.all(8),
                       ),

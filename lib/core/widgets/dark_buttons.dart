@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class DarkFilledButton extends StatelessWidget {
@@ -21,11 +20,11 @@ class DarkFilledButton extends StatelessWidget {
         backgroundBuilder: (context, states, child) {
           return Container(
             decoration: ShapeDecoration(
-              shape: RoundedSuperellipseBorder(borderRadius: .circular(50)),
+              shape: RoundedSuperellipseBorder(borderRadius: .circular(25)),
               color: states.contains(WidgetState.disabled) ? const Color.fromARGB(58, 0, 0, 0) : Colors.black,
-              shadows: shadow
-                  ? [BoxShadow(color: const Color.fromARGB(94, 0, 0, 0), spreadRadius: -1, blurRadius: 20)]
-                  : [],
+              shadows: [
+                if (shadow) BoxShadow(color: const Color.fromARGB(94, 0, 0, 0), spreadRadius: -1, blurRadius: 20),
+              ],
             ),
             child: child,
           );

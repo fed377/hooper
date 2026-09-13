@@ -1,13 +1,18 @@
 import 'package:flutter/services.dart';
 
 class DateInputFormatter extends TextInputFormatter {
+  static final RegExp _nonDigits = RegExp(r'\D');
+
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     if (oldValue.text.length >= newValue.text.length) {
       return newValue;
     }
 
-    final text = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final text = newValue.text.replaceAll(_nonDigits, '');
 
     if (text.length > 8) {
       return oldValue;

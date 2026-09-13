@@ -32,12 +32,16 @@ class CustomDataBox extends StatelessWidget {
                     padding: .all(10),
                     decoration: ShapeDecoration(
                       shape: RoundedSuperellipseBorder(borderRadius: .circular(50)),
-                      color: HooprColors.instance.glass ? Colors.white : HooprColors.instance.elevationColors[2],
+                      color: HooprTheme.instance.glass ? Colors.white : HooprTheme.instance.elevationColors[2],
                     ),
                     child: Icon(icon),
                   ),
                   const SizedBox(width: 8),
-                  Text(label, style: text.titleMedium?.copyWith(fontWeight: .w400), overflow: .clip),
+                  Text(
+                    label,
+                    style: text.titleMedium?.copyWith(fontWeight: .w400),
+                    overflow: .clip,
+                  ),
                 ],
               ),
               const Spacer(),

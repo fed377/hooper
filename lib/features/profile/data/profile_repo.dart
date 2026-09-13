@@ -49,7 +49,7 @@ class FirestorePlayerProfileRepository {
     if (updates.isEmpty) return;
     await _firestore.collection('playerProfiles').doc(uid).update(updates);
     if (displayName != oldName) {
-      await _firestore.collection('usernames').doc(updates['displayName']).set({});
+      await _firestore.collection('usernames').doc(updates['displayName']).set({'uid': uid});
       await _firestore.collection('usernames').doc(oldName).delete();
     }
   }

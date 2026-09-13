@@ -28,7 +28,12 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
   final String? bannerUrl;
   final String? heroTag;
-  const ChatScreen({super.key, required this.chatId, this.bannerUrl, this.heroTag});
+  const ChatScreen({
+    super.key,
+    required this.chatId,
+    this.bannerUrl,
+    this.heroTag,
+  });
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -44,6 +49,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _busy = false;
   bool _sendingMessage = false;
   GeoPoint? _chosenLocation;
+  String? _lastReadMessageId;
 
   Future<void> _send() async {
     setState(() => _sendingMessage = true);
@@ -51,7 +57,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (text.isEmpty) return;
     _messageController.clear();
     final uid = ref.read(currentUserIdProvider);
-    await ref.read(matchRepositoryProvider).sendMessage(chatId: widget.chatId, uid: uid, text: text);
+    await ref
+        .read(matchRepositoryProvider)
+        .sendMessage(chatId: widget.chatId, uid: uid, text: text);
     setState(() => _sendingMessage = false);
   }
 
@@ -70,10 +78,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       lastDate: .now().add(const Duration(days: 14)),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(base));
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+    );
     if (time == null) return;
     setState(() {
-      _editedTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _editedTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -92,10 +109,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       setState(() => _editingDetails = false);
     } on MatchActionException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _launchMaps(GeoPoint location) async {
+    await MapLauncher.marker(
+      Location.coords(location.latitude, location.longitude),
+    ).show();
   }
 
   Future<void> _runAction(Future<void> Function() action) async {
@@ -104,7 +128,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await action();
     } on MatchActionException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -129,7 +154,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               final otherId = chat.otherParticipant(uid);
               return Stack(
                 children: [
-                  if (widget.bannerUrl == null) _buildFallbackBackground(otherId),
+                  if (widget.bannerUrl == null)
+                    _buildFallbackBackground(otherId),
                   SafeArea(child: _buildBody(chat, uid, otherId)),
                 ],
               );
@@ -144,15 +170,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // Hero flight from the matchup card to land correctly. Sharp unless glass mode is on.
   Widget _buildHeroBackground() {
     if (widget.bannerUrl == null) return const SizedBox.shrink();
-    final image = Image(image: ref.watch(imageProviderFamily(widget.bannerUrl!)), fit: .cover);
+    final image = Image(
+      image: ref.watch(imageProviderFamily(widget.bannerUrl!)),
+      fit: .cover,
+    );
     return SizedBox.expand(
       child: Hero(
         transitionOnUserGestures: true,
         tag: widget.heroTag ?? "banner",
-        child: HooprColors.instance.glass
+        child: HooprTheme.instance.glass
             ? ClipRect(
                 child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20, tileMode: .mirror),
+                  imageFilter: ImageFilter.blur(
+                    sigmaX: 20,
+                    sigmaY: 20,
+                    tileMode: .mirror,
+                  ),
                   child: image,
                 ),
               )
@@ -162,13 +195,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildFallbackBackground(String otherId) {
-    if (!HooprColors.instance.glass) return const SizedBox.shrink();
+    if (!HooprTheme.instance.glass) return const SizedBox.shrink();
     final url = ref.watch(playerBannerUrlProvider(otherId)).value;
     if (url == null || url.isEmpty) return const SizedBox.shrink();
     return SizedBox.expand(
       child: ClipRect(
         child: ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20, tileMode: .mirror),
+          imageFilter: ImageFilter.blur(
+            sigmaX: 20,
+            sigmaY: 20,
+            tileMode: .mirror,
+          ),
           child: Image(image: ref.watch(imageProviderFamily(url)), fit: .cover),
         ),
       ),
@@ -182,7 +219,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       children: [
         _buildHeader(otherId, requestId),
         Expanded(child: _buildChat(uid, otherId)),
-        if (requestId != null) _buildActionBarForRequest(requestId, uid, otherId) else const SizedBox(height: 10),
+        if (requestId != null)
+          _buildActionBarForRequest(requestId, uid, otherId)
+        else
+          const SizedBox(height: 10),
       ],
     );
   }
@@ -213,14 +253,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: Text(
                       nameAsync.value ?? 'Loading…',
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: .bold),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: .bold),
                     ),
                   ),
                 ],
               ),
             ),
             if (hasRequest) ...[
-              Divider(height: 1, color: HooprColors.instance.borderColor),
+              Divider(height: 1, color: HooprTheme.instance.borderColor),
               _buildRequestDetails(requestId),
             ],
           ],
@@ -234,35 +275,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return SkeletonWidget<MatchRequestDoc>(
       val: requestAsync,
       dummyData: MatchRequestDoc.dummy(),
-      builder: (request) => Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: _DetailsWidget(
-              request: request,
-              editing: _editingDetails,
-              busy: _busy,
-              courtController: _courtController,
-              editedTime: _editedTime,
-              onEdit: () => _startEditingDetails(request),
-              onPickTime: _pickEditedTime,
-              onSave: () => _saveDetails(requestId),
-              onCancelEdit: () => setState(() => _editingDetails = false),
-              onPickLocation: () async {
-                final location = await LocationPicker.pickLocation(context, _chosenLocation ?? request.location);
-                if (location != null) _chosenLocation = location;
-              },
-            ),
-          ),
-          _StatusBanner(status: request.status),
-        ],
+      builder: (request) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: _DetailsWidget(
+          request: request,
+          editing: _editingDetails,
+          busy: _busy,
+          courtController: _courtController,
+          editedTime: _editedTime,
+          onPickTime: _pickEditedTime,
+          onSave: () => _saveDetails(requestId),
+          onCancelEdit: () => setState(() => _editingDetails = false),
+          onPickLocation: () async {
+            final location = await LocationPicker.pickLocation(
+              context,
+              _chosenLocation ?? request.location,
+            );
+            if (location != null) _chosenLocation = location;
+          },
+        ),
       ),
     );
   }
 
   Widget _buildChat(String uid, String opponentId) {
     final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
-    final lastMessageIdAsync = ref.watch(lastMessageIdRead((widget.chatId, opponentId)));
+    final lastMessageIdAsync = ref.watch(
+      lastMessageIdRead((widget.chatId, opponentId)),
+    );
     return Column(
       children: [
         Expanded(
@@ -272,19 +312,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             builder: (List<ChatMessage> messages) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (_scrollController.hasClients) {
-                  _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                  _scrollController.jumpTo(
+                    _scrollController.position.maxScrollExtent,
+                  );
                 }
               });
 
               if (messages.isEmpty) {
                 return const Center(child: Text('No messages yet'));
               }
-              final repo = ref.read(matchRepositoryProvider);
-              repo.readMessage(
-                userId: ref.read(currentUserIdProvider),
-                chatId: widget.chatId,
-                messageId: messages.last.id,
-              );
+              // Guard against re-marking the same message read on every rebuild
+              // (typing, unrelated provider updates, etc.) — only write when the
+              // last message actually changed.
+              if (messages.last.id != _lastReadMessageId) {
+                _lastReadMessageId = messages.last.id;
+                ref
+                    .read(matchRepositoryProvider)
+                    .readMessage(
+                      userId: ref.read(currentUserIdProvider),
+                      chatId: widget.chatId,
+                      messageId: messages.last.id,
+                    );
+              }
               return ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(12),
@@ -295,7 +344,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     return SystemMessage(msg: msg);
                   }
                   final isMine = msg.senderId == uid;
-                  return UserMessage(isMine: isMine, msg: msg, wasLastRead: msg.id == lastMessageIdAsync.value);
+                  return UserMessage(
+                    isMine: isMine,
+                    msg: msg,
+                    wasLastRead: msg.id == lastMessageIdAsync.value,
+                  );
                 },
               );
             },
@@ -320,13 +373,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          IconButton(icon: const Icon(Icons.send), onPressed: _sendingMessage ? null : _send),
+          IconButton(
+            icon: const Icon(Icons.send),
+            onPressed: _sendingMessage ? null : _send,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActionBarForRequest(String requestId, String uid, String otherId) {
+  Widget _buildActionBarForRequest(
+    String requestId,
+    String uid,
+    String otherId,
+  ) {
     final requestAsync = ref.watch(matchRequestProvider(requestId));
     final repo = ref.read(matchRepositoryProvider);
 
@@ -335,7 +395,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (request.status == MatchRequestStatus.accepted) {
           return const Padding(
             padding: EdgeInsets.all(16),
-            child: Text("You're locked in! Head to the court.", textAlign: TextAlign.center),
+            child: Text(
+              "You're locked in! Head to the court.",
+              textAlign: TextAlign.center,
+            ),
           );
         }
         if (request.status != MatchRequestStatus.pending) {
@@ -345,7 +408,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               children: [
                 Expanded(
                   child: FilledButton(
-                    onPressed: _busy ? null : () => ProposeMatchScreen.pushProposal(otherId, context),
+                    onPressed: _busy
+                        ? null
+                        : () =>
+                              ProposeMatchScreen.pushProposal(otherId, context),
                     child: Text("Play"),
                   ),
                 ),
@@ -361,17 +427,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
+              DarkIconButton(
+                onPressed: () => _startEditingDetails(request),
+                icon: const Icon(Icons.edit_outlined),
+                shadow: false,
+              ),
+              const SizedBox(width: 8),
+              DarkIconButton(
+                onPressed: () => _launchMaps(request.location),
+                icon: const Icon(Icons.location_on_rounded),
+                shadow: false,
+              ),
+              const SizedBox(width: 12),
               if (isInitiator)
                 Expanded(
                   child: FilledButton(
-                    onPressed: _busy ? null : () => _runAction(() => repo.cancelRequest(requestId)),
+                    onPressed: _busy
+                        ? null
+                        : () => _runAction(() => repo.cancelRequest(requestId)),
                     child: const Text('Cancel request'),
                   ),
                 )
               else ...[
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _busy ? null : () => _runAction(() => repo.declineRequest(requestId)),
+                    onPressed: _busy
+                        ? null
+                        : () =>
+                              _runAction(() => repo.declineRequest(requestId)),
                     child: const Text('Decline'),
                   ),
                 ),
@@ -387,11 +470,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     return pass
                         ? Expanded(
                             child: FilledButton(
-                              onPressed: _busy ? null : () => _runAction(() => repo.acceptRequest(requestId)),
+                              onPressed: _busy
+                                  ? null
+                                  : () => _runAction(
+                                      () => repo.acceptRequest(requestId),
+                                    ),
                               child: const Text('Accept'),
                             ),
                           )
-                        : Expanded(child: FilledButton(onPressed: null, child: const Text('Schedule conflict')));
+                        : Expanded(
+                            child: FilledButton(
+                              onPressed: null,
+                              child: const Text('Schedule conflict'),
+                            ),
+                          );
                   },
                 ),
               ],
@@ -407,7 +499,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return data?.every((doc) {
       final st = doc.scheduledTime;
       final et = st.add(Duration(hours: 1));
-      final ol = (st.isBefore(rs) && et.isAfter(rs)) || (st.isBefore(re) && et.isAfter(re));
+      final ol =
+          (st.isBefore(rs) && et.isAfter(rs)) ||
+          (st.isBefore(re) && et.isAfter(re));
       return !ol;
     });
   }
@@ -419,30 +513,28 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String? message = switch (status) {
-      .declined => 'This request was declined.',
-      .withdrawn => 'This request was cancelled.',
-      .expired => 'This request expired.',
-      .pending => 'This request has not been accepted yet. ',
-      .accepted => 'This match is scheduled',
-      .finished => "This match is finished",
+    String message = switch (status) {
+      .declined => 'Declined',
+      .withdrawn => 'Cancelled',
+      .expired => 'Expired',
+      .pending => 'Not accepted yet',
+      .accepted => 'Scheduled',
+      .finished => 'Finished',
     };
 
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: Container(
-        decoration: ShapeDecoration(
-          color: colorScheme.errorContainer.withAlpha(150),
-          shape: RoundedSuperellipseBorder(borderRadius: .circular(16)),
-        ),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: colorScheme.onErrorContainer),
-        ),
+    return Container(
+      decoration: ShapeDecoration(
+        color: colorScheme.errorContainer.withAlpha(150),
+        shape: RoundedSuperellipseBorder(borderRadius: .circular(16)),
+      ),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      child: Text(
+        message,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: colorScheme.onErrorContainer, fontSize: 12),
       ),
     );
   }
@@ -454,7 +546,6 @@ class _DetailsWidget extends StatelessWidget {
   final bool busy;
   final TextEditingController courtController;
   final DateTime? editedTime;
-  final VoidCallback onEdit;
   final VoidCallback onPickTime;
   final VoidCallback onSave;
   final VoidCallback onCancelEdit;
@@ -466,7 +557,6 @@ class _DetailsWidget extends StatelessWidget {
     required this.busy,
     required this.courtController,
     required this.editedTime,
-    required this.onEdit,
     required this.onPickTime,
     required this.onSave,
     required this.onCancelEdit,
@@ -475,29 +565,42 @@ class _DetailsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canEdit = request.status == MatchRequestStatus.pending;
-
     if (editing) {
       return Column(
         crossAxisAlignment: .stretch,
         children: [
           TextField(
             controller: courtController,
-            decoration: const InputDecoration(labelText: 'Court', isDense: true),
+            decoration: const InputDecoration(
+              labelText: 'Court',
+              isDense: true,
+            ),
           ),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: onPickTime, child: Text(editedTime?.toString() ?? 'Pick date & time')),
+          OutlinedButton(
+            onPressed: onPickTime,
+            child: Text(editedTime?.toString() ?? 'Pick date & time'),
+          ),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: onPickLocation, child: Text('Choose new location')),
+          OutlinedButton(
+            onPressed: onPickLocation,
+            child: Text('Choose new location'),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(onPressed: busy ? null : onCancelEdit, child: const Text('Cancel')),
+                child: OutlinedButton(
+                  onPressed: busy ? null : onCancelEdit,
+                  child: const Text('Cancel'),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: FilledButton(onPressed: busy ? null : onSave, child: const Text('Save')),
+                child: FilledButton(
+                  onPressed: busy ? null : onSave,
+                  child: const Text('Save'),
+                ),
               ),
             ],
           ),
@@ -506,14 +609,18 @@ class _DetailsWidget extends StatelessWidget {
     }
 
     return Row(
-      crossAxisAlignment: .center,
+      crossAxisAlignment: .start,
       children: [
         ClipRSuperellipse(
           borderRadius: .circular(16),
           child: SizedBox(
-            width: 56,
-            height: 56,
-            child: LocationPicker.locationDisplayer(request.location, height: 56, borderRadius: 16),
+            width: 85,
+            height: 85,
+            child: LocationPicker.locationDisplayer(
+              request.location,
+              height: 64,
+              borderRadius: 16,
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -522,21 +629,24 @@ class _DetailsWidget extends StatelessWidget {
             crossAxisAlignment: .start,
             mainAxisSize: .min,
             children: [
-              Text(request.court, style: Theme.of(context).textTheme.titleSmall),
-              Text(request.scheduledTime.toLocal().toString(), style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                request.court,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Text(
+                formatDateShort(request.scheduledTime),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _StatusBanner(status: request.status),
             ],
           ),
         ),
-        if (canEdit) DarkIconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), shadow: false),
-        const SizedBox(width: 8),
-        DarkIconButton(onPressed: launchMaps, icon: const Icon(Icons.location_on_rounded), shadow: false),
       ],
     );
-  }
-
-  void launchMaps() async {
-    final double latitude, longitude;
-    (latitude, longitude) = (request.location.latitude, request.location.longitude);
-    await MapLauncher.marker(Location.coords(latitude, longitude)).show();
   }
 }

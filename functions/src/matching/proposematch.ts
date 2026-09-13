@@ -48,7 +48,7 @@ export const proposeMatch = onCall(async (request) => {
   }
 
   const db = getFirestore();
-  //const requesterRef = db.collection("playerProfiles").doc(uid);
+  const requesterRef = db.collection("playerProfiles").doc(uid);
   const targetRef = db.collection("playerProfiles").doc(targetIdTrim);
   const matchRequestRef = db.collection("matchRequests").doc();
   const chatId = pairChatId(uid, targetId);
@@ -56,10 +56,22 @@ export const proposeMatch = onCall(async (request) => {
   const proposalText = `Proposed ${court.trim()} at $$${scheduledTimestamp.toMillis()}$$`;
 
   await db.runTransaction(async (tx) => {
-    const [targetSnap, chatSnap] = await Promise.all([
+    const [requesterSnap, targetSnap, chatSnap] = await Promise.all([
+      tx.get(requesterRef),
       tx.get(targetRef),
       tx.get(chatRef),
     ]);
+
+    // A suspended/banned caller shouldn't be able to keep sending new
+    // challenges just because setUserStatus only cleaned up what existed
+    // at ban time — this closes that gap.
+    const requesterStatus = requesterSnap.data()?.accountStatus;
+    if (requesterStatus && requesterStatus !== "active") {
+      throw new HttpsError(
+        "permission-denied",
+        "Your account can't send match requests right now.",
+      );
+    }
 
     if (!targetSnap.exists) {
       throw new HttpsError("not-found", "That player no longer exists.");

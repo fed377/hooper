@@ -38,11 +38,44 @@ class ProfileFillScreen extends ConsumerStatefulWidget {
 
 class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
   FormData data = FormData();
+  final _usernameController = TextEditingController();
+
+  // Sign-in providers (e.g. Google) already give us a display name; reuse it
+  // as a starting point for the username, restricted to this field's allowed
+  // charset. Left blank (for the user to fill in themselves) when what's left
+  // over isn't long enough to be a valid username.
+  String? _sanitizeUsername(String? raw) {
+    if (raw == null) return null;
+    final cleaned = raw.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+    if (cleaned.length < 5) return null;
+    return cleaned.substring(0, cleaned.length > 12 ? 12 : cleaned.length);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    data.initialPhotoUrl = user?.photoURL;
+    final suggestedUsername = _sanitizeUsername(user?.displayName);
+    data.username = suggestedUsername;
+    _usernameController.text = suggestedUsername ?? '';
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     final date = data.birthday;
     setState(() => data.currState = .verifying);
-    final pass = data.bannerImage != null && data.profileImage != null && formKey.currentState!.validate();
+    final hasProfileImage =
+        data.profileImage != null || data.initialPhotoUrl != null;
+    final pass =
+        data.bannerImage != null &&
+        hasProfileImage &&
+        formKey.currentState!.validate();
     if (!pass) return;
 
     final inputName = data.username!;
@@ -70,14 +103,19 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
         if (!mounted) return;
-        setState(() => data.generalError = 'Turn on location services and try again.');
+        setState(
+          () => data.generalError = 'Turn on location services and try again.',
+        );
         return;
       }
 
       final position = await Geolocator.getCurrentPosition();
       final uid = ref.read(currentUserIdProvider);
       final profileRepo = ref.read(playerProfileRepositoryProvider);
-      await profileRepo.updateLocation(uid, GeoPoint(position.latitude, position.longitude));
+      await profileRepo.updateLocation(
+        uid,
+        GeoPoint(position.latitude, position.longitude),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => data.generalError = 'Could not get your location: $e');
@@ -89,22 +127,40 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
     try {
       final uid = ref.read(currentUserIdProvider);
       await _requestLocation();
-      await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).update({
-        'height': height,
-        'position': playerPositionToInt(data.position),
-        'bio': bio,
-        'displayName': name,
+      await FirebaseFirestore.instance
+          .collection('playerProfiles')
+          .doc(uid)
+          .update({
+            'height': height,
+            'position': playerPositionToInt(data.position),
+            'bio': bio,
+            'displayName': name,
+          });
+      await FirebaseFirestore.instance.collection('usernames').doc(name).set({
+        'uid': uid,
       });
-      await FirebaseFirestore.instance.collection('usernames').doc(name).set({});
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({'dateOfBirth': Timestamp.fromDate(date)});
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'dateOfBirth': Timestamp.fromDate(date),
+      });
 
       Future.wait([
-        _pushImage(propertyName: 'photoUrl', uid: uid, image: data.profileImage),
-        _pushImage(propertyName: 'bannerUrl', uid: uid, image: data.bannerImage),
+        _pushImage(
+          propertyName: 'photoUrl',
+          uid: uid,
+          image: data.profileImage,
+        ),
+        _pushImage(
+          propertyName: 'bannerUrl',
+          uid: uid,
+          image: data.bannerImage,
+        ),
       ]);
     } catch (e) {
       if (!mounted) return;
-      setState(() => data.generalError = 'Could not save your profile. Please try again.');
+      setState(
+        () => data.generalError =
+            'Could not save your profile. Please try again.',
+      );
       log(e.toString());
     } finally {
       if (mounted) {
@@ -115,7 +171,11 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
     }
   }
 
-  Future<void> _pushImage({required String uid, required String propertyName, required XFile? image}) async {
+  Future<void> _pushImage({
+    required String uid,
+    required String propertyName,
+    required XFile? image,
+  }) async {
     if (image == null) return;
 
     final file = File(image.path);
@@ -123,19 +183,32 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
 
     final compressedFile = await FlutterImageCompress.compressAndGetFile(
       file.absolute.path,
-      file.absolute.path.replaceAll('.jpg', '_compressed.jpg').replaceAll('.png', '_compressed.png'),
+      file.absolute.path
+          .replaceAll('.jpg', '_compressed.jpg')
+          .replaceAll('.png', '_compressed.png'),
       quality: isBanner ? 85 : 60,
       minWidth: isBanner ? 1080 : 256,
       minHeight: isBanner ? 1080 : 256,
     );
 
-    final uploadFile = compressedFile != null ? File(compressedFile.path) : file;
+    final uploadFile = compressedFile != null
+        ? File(compressedFile.path)
+        : file;
 
-    final storageRef = FirebaseStorage.instance.ref().child('${propertyName}s').child('$uid.jpg');
-    final uploadTask = await storageRef.putFile(uploadFile, SettableMetadata(contentType: 'image/jpeg'));
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('${propertyName}s')
+        .child('$uid.jpg');
+    final uploadTask = await storageRef.putFile(
+      uploadFile,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
     final downloadUrl = await uploadTask.ref.getDownloadURL();
 
-    await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).update({propertyName: downloadUrl});
+    await FirebaseFirestore.instance
+        .collection('playerProfiles')
+        .doc(uid)
+        .update({propertyName: downloadUrl});
   }
 
   final PageController controller = .new();
@@ -156,7 +229,7 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          if (HooprColors.instance.glass) BackgroundImage(),
+          if (HooprTheme.instance.glass) BackgroundImage(),
           SizedBox.expand(
             child: GestureDetector(
               onTap: FocusScope.of(context).unfocus,
@@ -170,18 +243,35 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
                       controller: controller,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(left: 22, right: 22, top: 80, bottom: 22),
-                          child: IgnorePointer(ignoring: !data.canEdit, child: _buildImagesForm()),
+                          padding: const EdgeInsets.only(
+                            left: 22,
+                            right: 22,
+                            top: 80,
+                            bottom: 22,
+                          ),
+                          child: IgnorePointer(
+                            ignoring: !data.canEdit,
+                            child: _buildImagesForm(),
+                          ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.only(left: 22, right: 22, top: 80, bottom: 22),
+                          padding: const EdgeInsets.only(
+                            left: 22,
+                            right: 22,
+                            top: 80,
+                            bottom: 22,
+                          ),
                           child: _buildTextForms(context, ref),
                         ),
                       ],
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(left: 22, right: 22, bottom: 22),
+                    padding: const EdgeInsets.only(
+                      left: 22,
+                      right: 22,
+                      bottom: 22,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -193,11 +283,15 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
                                   GoogleSignIn.instance.signOut();
                                 };
                               } else {
-                                return () =>
-                                    controller.previousPage(curve: Curves.easeInOut, duration: Durations.medium2);
+                                return () => controller.previousPage(
+                                  curve: Curves.easeInOut,
+                                  duration: Durations.medium2,
+                                );
                               }
                             })(),
-                            child: Text(_currPage == 0 ? "Log Out" : "Previous"),
+                            child: Text(
+                              _currPage == 0 ? "Log Out" : "Previous",
+                            ),
                           ),
                         ),
                         const SizedBox(width: 22),
@@ -205,8 +299,17 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
                           child: DarkFilledButton(
                             onPressed: (() {
                               if (_currPage == 0) {
-                                if (data.bannerImage == null || data.profileImage == null) return null;
-                                return () => controller.nextPage(curve: Curves.easeInOut, duration: Durations.medium2);
+                                final hasProfileImage =
+                                    data.profileImage != null ||
+                                    data.initialPhotoUrl != null;
+                                if (data.bannerImage == null ||
+                                    !hasProfileImage) {
+                                  return null;
+                                }
+                                return () => controller.nextPage(
+                                  curve: Curves.easeInOut,
+                                  duration: Durations.medium2,
+                                );
                               }
                               final dat = formKey.currentState?.validate();
                               return dat == true ? _submit : null;
@@ -228,7 +331,8 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
 
   int ageOn(DateTime date, DateTime now) {
     int age = now.year - date.year;
-    if (now.month < date.month || (now.month == date.month && now.day < date.day)) {
+    if (now.month < date.month ||
+        (now.month == date.month && now.day < date.day)) {
       age--;
     }
     return age;
@@ -258,7 +362,9 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
 
   Widget _buildTextForms(BuildContext context, WidgetRef ref) {
     final bool canEdit = data.canEdit;
-    final name = (data.username?.length ?? -1) < 5 ? "New Player" : data.username!;
+    final name = (data.username?.length ?? -1) < 5
+        ? "New Player"
+        : data.username!;
     final takenAsync = ref.watch(isNameTakenProvider(name));
 
     return SingleChildScrollView(
@@ -283,9 +389,13 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
                 if (date?.isEmpty ?? true) return " ";
                 final datetime = tryDate(date);
                 if (datetime == null) return "Please enter a valid date";
-                if (datetime.isAfter(DateTime.now())) return "Please enter a valid date";
+                if (datetime.isAfter(DateTime.now())) {
+                  return "Please enter a valid date";
+                }
                 final age = ageOn(datetime, DateTime.now());
-                if (age < kMinimumAge) return "You must be at least $kMinimumAge to use this app. ";
+                if (age < kMinimumAge) {
+                  return "You must be at least $kMinimumAge to use this app. ";
+                }
                 if (age > 100) return "Please enter a valid date";
                 return null;
               },
@@ -314,9 +424,12 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
             const SizedBox(height: 22),
             BlurredFormField(
               enabled: canEdit,
+              controller: _usernameController,
               message: "Username",
               maxLength: 12,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+              ],
               onChanged: (s) {
                 setState(() {
                   data.username = s;
@@ -324,8 +437,12 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
               },
               validator: (s) {
                 if (s == null) return " ";
-                if (s.length < 5) return "Username must be at least 5 characters";
-                final value = takenAsync.isLoading ? false : takenAsync.value ?? false;
+                if (s.length < 5) {
+                  return "Username must be at least 5 characters";
+                }
+                final value = takenAsync.isLoading
+                    ? false
+                    : takenAsync.value ?? false;
                 if (!value) return null;
                 return " ";
               },
@@ -337,7 +454,9 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
                       val: takenAsync,
                       dummyData: true,
                       builder: (bool taken) {
-                        return Text("${data.username} is ${taken ? "already taken" : "available"}");
+                        return Text(
+                          "${data.username} is ${taken ? "already taken" : "available"}",
+                        );
                       },
                     ),
                   ]
@@ -354,7 +473,10 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
             ),
             const SizedBox(height: 22),
             if (data.generalError != null)
-              Text(data.generalError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                data.generalError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
           ],
         ),
       ),
@@ -382,7 +504,10 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
 
   void pickBannerImage() async {
     final picker = ImagePicker();
-    final newImage = await picker.pickImage(source: ImageSource.gallery, imageQuality: 100);
+    final newImage = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 100,
+    );
     if (newImage != null) {
       setState(() {
         data.bannerImage = newImage;
@@ -401,11 +526,14 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
           onTap: data.bannerImage == null ? pickBannerImage : null,
           child: SizedBox.expand(
             child: BlurredContainer(
-              elevation: 1, 
+              elevation: 1,
               sigma: 30,
               child: data.bannerImage == null
                   ? Icon(Icons.edit_rounded)
-                  : Image(image: FileImage(File(data.bannerImage!.path)), fit: .cover),
+                  : Image(
+                      image: FileImage(File(data.bannerImage!.path)),
+                      fit: .cover,
+                    ),
             ),
           ),
         ),
@@ -417,9 +545,15 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
               child: Row(
                 mainAxisSize: .min,
                 children: [
-                  IconButton(icon: Icon(Icons.edit_rounded), onPressed: pickBannerImage),
+                  IconButton(
+                    icon: Icon(Icons.edit_rounded),
+                    onPressed: pickBannerImage,
+                  ),
                   const SizedBox(width: 8),
-                  IconButton(icon: Icon(Icons.delete_rounded), onPressed: clearBannerImage),
+                  IconButton(
+                    icon: Icon(Icons.delete_rounded),
+                    onPressed: clearBannerImage,
+                  ),
                 ],
               ),
             ),
@@ -433,12 +567,20 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
               height: 150,
               width: 150,
               child: BlurredContainer(
-                elevation: 3, 
+                elevation: 3,
                 radius: 26,
                 sigma: 30,
-                child: data.profileImage == null
-                    ? Icon(Icons.edit_rounded)
-                    : Image(image: FileImage(File(data.profileImage!.path)), fit: .cover),
+                child: switch ((data.profileImage, data.initialPhotoUrl)) {
+                  (final XFile picked, _) => Image(
+                    image: FileImage(File(picked.path)),
+                    fit: .cover,
+                  ),
+                  (null, final String url) => Image(
+                    image: ref.watch(imageProviderFamily(url)),
+                    fit: .cover,
+                  ),
+                  _ => Icon(Icons.edit_rounded),
+                },
               ),
             ),
           ),
@@ -449,11 +591,15 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
 }
 
 class FormData {
-  SubmitState currState = SubmitState.yes; // State only in terms of saving or verifying, no validation
+  SubmitState currState = SubmitState
+      .yes; // State only in terms of saving or verifying, no validation
 
   bool get canEdit => !(currState == .saving || currState == .verifying);
 
   XFile? profileImage;
+  // Profile photo URL already on the account from the sign-in provider (e.g.
+  // Google), shown until the user picks a different photo of their own.
+  String? initialPhotoUrl;
   XFile? bannerImage;
   String? username;
   String? bio;

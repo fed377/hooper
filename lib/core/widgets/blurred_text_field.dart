@@ -36,44 +36,66 @@ class BlurredTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HooprColors.instance;
-    return RepaintBoundary(
-      child: ClipRSuperellipse(
-        borderRadius: .circular(22),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: .mirror),
-          child: TextField(
-            maxLength: maxLength,
-            obscureText: obscureText,
-            keyboardType: keyboardType,
-            autocorrect: autocorrect,
-            autofillHints: autofillHints,
-            inputFormatters: inputFormatters,
-            onChanged: _onChanged,
-            controller: _controller,
-            enabled: enabled,
-            maxLines: maxLines,
-            decoration: InputDecoration(
-              counter: const SizedBox(),
-              filled: true,
-              fillColor: colors.blurColor,
-              focusColor: colors.emphasisColor,
-              hintText: _message,
-              isDense: true,
-              enabledBorder: ShapedInputBorder(
-                shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-                borderSide: .new(color: colors.borderColor, strokeAlign: 0),
-              ),
-              focusedBorder: ShapedInputBorder(
-                shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-                borderSide: .new(color: colors.borderColor),
-              ),
-            ),
-            onSubmitted: _onSubmitted,
-          ),
+    final colors = HooprTheme.instance;
+    final glass = colors.glass;
+
+    final field = TextField(
+      maxLength: maxLength,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      autocorrect: autocorrect,
+      autofillHints: autofillHints,
+      inputFormatters: inputFormatters,
+      onChanged: _onChanged,
+      controller: _controller,
+      enabled: enabled,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        counter: const SizedBox(),
+        filled: true,
+        fillColor: glass ? colors.blurColor : colors.elevationColors[0],
+        focusColor: colors.emphasisColor,
+        hintText: _message,
+        isDense: true,
+        enabledBorder: ShapedInputBorder(
+          shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
+          borderSide: glass
+              ? .new(color: colors.borderColor, strokeAlign: 0)
+              : .none,
+        ),
+        focusedBorder: ShapedInputBorder(
+          shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
+          borderSide: glass ? .new(color: colors.borderColor) : .none,
         ),
       ),
+      onSubmitted: _onSubmitted,
     );
+
+    Widget content = ClipRSuperellipse(
+      borderRadius: .circular(22),
+      child: glass
+          ? BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: 10,
+                sigmaY: 10,
+                tileMode: .mirror,
+              ),
+              child: field,
+            )
+          : field,
+    );
+
+    if (!glass) {
+      content = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [colors.textFieldShadow],
+        ),
+        child: content,
+      );
+    }
+
+    return RepaintBoundary(child: content);
   }
 }
 
@@ -85,7 +107,10 @@ class BlurredFormField extends FormField<String> {
     super.onSaved,
     String message = '',
     double borderRadius = 22.0,
-    EdgeInsets contentPadding = const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    EdgeInsets contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 14,
+    ),
     double blurSigma = 10.0,
     TextInputType? keyboardType,
     bool enabled = true,
@@ -97,55 +122,93 @@ class BlurredFormField extends FormField<String> {
   }) : super(
          initialValue: controller?.text,
          builder: (FormFieldState<String> state) {
-           final colors = HooprColors.instance;
+           final colors = HooprTheme.instance;
+           final glass = colors.glass;
+           final shouldBorder = border && glass;
+
+           final field = TextField(
+             maxLength: maxLength,
+             maxLines: maxLines,
+             buildCounter: (
+               context, {
+               required currentLength,
+               required isFocused,
+               required maxLength,
+             }) => null,
+             keyboardType: keyboardType,
+             inputFormatters: inputFormatters,
+             controller: controller,
+             onChanged: (value) {
+               state.didChange(value);
+               if (onChanged != null) onChanged(value);
+             },
+             textAlignVertical: TextAlignVertical.center,
+             decoration: InputDecoration(
+               contentPadding: EdgeInsets.all(15),
+               fillColor: glass ? colors.blurColor : colors.elevationColors[0],
+               focusColor: colors.emphasisColor,
+               filled: true,
+               hintText: message,
+               enabledBorder: ShapedInputBorder(
+                 shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
+                 borderSide: !shouldBorder
+                     ? .none
+                     : .new(color: colors.borderColor),
+               ),
+               focusedBorder: ShapedInputBorder(
+                 shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
+                 borderSide: !shouldBorder
+                     ? .none
+                     : .new(color: colors.borderColor),
+               ),
+               errorBorder: ShapedInputBorder(
+                 shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
+                 borderSide: !shouldBorder
+                     ? .none
+                     : .new(color: colors.borderColor),
+               ),
+             ),
+           );
+
+           Widget content = ClipRSuperellipse(
+             borderRadius: BorderRadius.circular(borderRadius),
+             child: glass
+                 ? BackdropFilter(
+                     filter: ImageFilter.blur(
+                       sigmaX: blurSigma,
+                       sigmaY: blurSigma,
+                     ),
+                     child: field,
+                   )
+                 : field,
+           );
+
+           if (!glass) {
+             content = DecoratedBox(
+               decoration: BoxDecoration(
+                 borderRadius: BorderRadius.circular(borderRadius),
+                 boxShadow: [colors.textFieldShadow],
+               ),
+               child: content,
+             );
+           }
+
            return Column(
              crossAxisAlignment: CrossAxisAlignment.start,
              mainAxisSize: MainAxisSize.min,
              children: [
-               ClipRSuperellipse(
-                 borderRadius: BorderRadius.circular(borderRadius),
-                 child: BackdropFilter(
-                   filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-                   child: TextField(
-                     maxLength: maxLength,
-                     maxLines: maxLines,
-                     buildCounter: (context, {required currentLength, required isFocused, required maxLength}) => null,
-                     keyboardType: keyboardType,
-                     inputFormatters: inputFormatters,
-                     controller: controller,
-                     onChanged: (value) {
-                       state.didChange(value);
-                       if (onChanged != null) onChanged(value);
-                     },
-                     textAlignVertical: TextAlignVertical.center,
-                     decoration: InputDecoration(
-                       contentPadding: EdgeInsets.all(15),
-                       fillColor: colors.blurColor,
-                       focusColor: colors.emphasisColor,
-                       filled: true,
-                       hintText: message,
-                       enabledBorder: ShapedInputBorder(
-                         shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-                         borderSide: !border ? .none : .new(color: colors.borderColor),
-                       ),
-                       focusedBorder: ShapedInputBorder(
-                         shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-                         borderSide: !border ? .none : .new(color: colors.borderColor),
-                       ),
-                       errorBorder: ShapedInputBorder(
-                         shape: RoundedSuperellipseBorder(borderRadius: .circular(22)),
-                         borderSide: !border ? .none : .new(color: colors.borderColor),
-                       ),
-                     ),
-                   ),
-                 ),
-               ),
-               if (state.hasError && state.errorText != null && state.errorText?.trim() != '')
+               content,
+               if (state.hasError &&
+                   state.errorText != null &&
+                   state.errorText?.trim() != '')
                  Padding(
                    padding: const EdgeInsets.only(top: 6, left: 12),
                    child: Text(
                      state.errorText!,
-                     style: TextStyle(color: Theme.of(state.context).colorScheme.error, fontSize: 12),
+                     style: TextStyle(
+                       color: Theme.of(state.context).colorScheme.error,
+                       fontSize: 12,
+                     ),
                    ),
                  ),
              ],

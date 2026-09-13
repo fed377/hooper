@@ -21,6 +21,7 @@ class _LockGateState extends ConsumerState<LockGate> {
   Timer? _timer;
   String? _timerTargetId;
   final Set<String> _startedMatchIds = {};
+  String? _lastRoutedMatchId;
 
   bool _shouldScore(MatchStatus status) =>
       status == MatchStatus.scheduled ||
@@ -39,9 +40,13 @@ class _LockGateState extends ConsumerState<LockGate> {
     final lockedMatches = ref.watch(lockedMatchesProvider);
     return lockedMatches.when(
       data: (data) {
-        if (data == null || data.isEmpty) return const HomePage();
+        if (data == null || data.isEmpty) {
+          _lastRoutedMatchId = null;
+          return const HomePage();
+        }
 
-        final sorted = [...data]..sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+        final sorted = [...data]
+          ..sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
 
         MatchDoc? dueMatch;
         for (final doc in sorted) {
@@ -52,19 +57,38 @@ class _LockGateState extends ConsumerState<LockGate> {
         }
 
         if (dueMatch != null) {
-          if (dueMatch.status == MatchStatus.scheduled && _startedMatchIds.add(dueMatch.id)) {
+          if (dueMatch.status == MatchStatus.scheduled &&
+              _startedMatchIds.add(dueMatch.id)) {
             ref.read(matchRepositoryProvider).startMatch(dueMatch.id);
+          }
+          // Force the user back to this route even if they're deep in a
+          // pushed screen (e.g. a chat) — otherwise they'd only see the
+          // match starting once they manually popped back to it.
+          if (_lastRoutedMatchId != dueMatch.id) {
+            _lastRoutedMatchId = dueMatch.id;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            });
           }
           return CurrentlyPlayingScreen(matchId: dueMatch.id);
         }
 
-        final upcoming = sorted.where((d) => _shouldScore(d.status) && d.scheduledTime.isAfter(.now()));
+        _lastRoutedMatchId = null;
+
+        final upcoming = sorted.where(
+          (d) => _shouldScore(d.status) && d.scheduledTime.isAfter(.now()),
+        );
         if (upcoming.isNotEmpty) {
           final next = upcoming.first;
           if (_timerTargetId != next.id) {
             _timer?.cancel();
             _timerTargetId = next.id;
-            _timer = Timer(next.scheduledTime.difference(.now()), () => ref.invalidate(lockedMatchesProvider));
+            _timer = Timer(
+              next.scheduledTime.difference(.now()),
+              () => ref.invalidate(lockedMatchesProvider),
+            );
           }
         } else {
           _timer?.cancel();
@@ -72,7 +96,10 @@ class _LockGateState extends ConsumerState<LockGate> {
         }
 
         if (upcoming.isNotEmpty && (_timer == null || !_timer!.isActive)) {
-          _timer = Timer(upcoming.first.scheduledTime.difference(.now()), () => ref.invalidate(lockedMatchesProvider));
+          _timer = Timer(
+            upcoming.first.scheduledTime.difference(.now()),
+            () => ref.invalidate(lockedMatchesProvider),
+          );
         }
 
         return const HomePage();
@@ -80,7 +107,9 @@ class _LockGateState extends ConsumerState<LockGate> {
       error: (error, stackTrace) {
         log(error.toString());
         log(stackTrace.toString());
-        return const Scaffold(body: Center(child: Text('Something went wrong.')));
+        return const Scaffold(
+          body: Center(child: Text('Something went wrong.')),
+        );
       },
       loading: () => const SplashScreen(),
     );

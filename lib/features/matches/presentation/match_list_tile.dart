@@ -7,7 +7,12 @@ import 'package:hooper/features/matches/data/match_doc.dart';
 import 'package:hooper/features/matches/presentation/match_view_screen.dart';
 
 class MatchListTile extends ConsumerWidget {
-  const MatchListTile({super.key, required this.match, required this.radius, required this.matchup});
+  const MatchListTile({
+    super.key,
+    required this.match,
+    required this.radius,
+    required this.matchup,
+  });
   final MatchDoc match;
   final Matchup matchup;
   final double radius;
@@ -17,12 +22,20 @@ class MatchListTile extends ConsumerWidget {
     return Material(
       type: MaterialType.transparency,
       child: ListTile(
-        onTap: () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => MatchViewScreen(matchId: match.id))),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => MatchViewScreen(matchId: match.id),
+          ),
+        ),
         title: Text(matchup.displayName),
         subtitle: Text(utils.formatDate(match.scheduledTime)),
         leading: CircleAvatar(
-          backgroundImage: matchup.photoUrl != null ? CachedNetworkImageProvider(matchup.photoUrl!) : null,
+          backgroundImage: matchup.photoUrl != null
+              ? ResizeImage(
+                  CachedNetworkImageProvider(matchup.photoUrl!),
+                  width: 120,
+                )
+              : null,
           child: matchup.photoUrl == null ? Text(matchup.displayName[0]) : null,
         ),
       ),

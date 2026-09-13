@@ -16,10 +16,26 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
+typedef _NavProgress = ({
+  double position,
+  double? startIndex,
+  double? endIndex,
+});
+
 class _HomePageState extends ConsumerState<HomePage> {
   double _currPage = 0;
 
   late PageController _pageController;
+
+  // Driving the bottom nav's indicator purely off scroll position used to
+  // call setState() on this whole page every scroll frame, rebuilding the
+  // PageView's tab pages along with it. A ValueNotifier lets only the bottom
+  // bar's own ValueListenableBuilder rebuild on each frame instead.
+  final ValueNotifier<_NavProgress> _navProgress = ValueNotifier((
+    position: 0,
+    startIndex: null,
+    endIndex: null,
+  ));
 
   @override
   void initState() {
@@ -30,6 +46,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void dispose() {
     _pageController.dispose();
+    _navProgress.dispose();
     super.dispose();
   }
 
@@ -45,66 +62,91 @@ class _HomePageState extends ConsumerState<HomePage> {
     final height = 64.0;
     return Padding(
       padding: const EdgeInsets.all(12.0),
-      child: BlurredPicker(
-        radius: radius,
-        height: height,
-        progress: _pagePosition,
-        elements: icons,
-        onTap: onTap,
-        startIndex: startIndex,
-        endIndex: endIndex,
+      child: ValueListenableBuilder<_NavProgress>(
+        valueListenable: _navProgress,
+        builder: (context, nav, _) => BlurredPicker(
+          radius: radius,
+          height: height,
+          progress: nav.position,
+          elements: icons,
+          onTap: onTap,
+          startIndex: nav.startIndex,
+          endIndex: nav.endIndex,
+        ),
       ),
     );
   }
 
-  double _pagePosition = 0.0;
-
   @override
   Widget build(BuildContext context) {
-    ref.watch(myPreferencesProvider).whenData((prefs) => HooprColors.instance.glass = prefs.glass);
+    // ref.listen (not ref.watch) since this is a side effect, not something
+    // HomePage itself needs to rebuild for; select() narrows it to just the
+    // one field so unrelated preference changes (e.g. blockedUsers) don't
+    // even trigger this callback.
+    ref.listen(myPreferencesProvider.select((v) => v.value?.glass), (
+      previous,
+      next,
+    ) {
+      if (next != null) HooprTheme.instance.glass = next;
+    });
     final cornerRadiusAsync = ref.watch(cornerRadiusProvider);
 
     final duration = Durations.medium3;
     return Scaffold(
       extendBody: true,
       bottomNavigationBar: _buildBottomBar(
-        cornerRadiusAsync.when(data: (x) => x, loading: () => 20, error: (_, _) => 20),
+        cornerRadiusAsync.when(
+          data: (x) => x,
+          loading: () => 20,
+          error: (_, _) => 20,
+        ),
         duration,
       ),
       body: NotificationListener(
         onNotification: (notification) {
           if (notification is ScrollUpdateNotification) {
-            setState(() {
-              if (notification.dragDetails != null) {
-                startIndex = null;
-                endIndex = null;
-              }
-              _pagePosition = _pageController.page ?? _pageController.initialPage.toDouble();
-            });
+            final current = _navProgress.value;
+            _navProgress.value = (
+              position:
+                  _pageController.page ??
+                  _pageController.initialPage.toDouble(),
+              startIndex: notification.dragDetails != null
+                  ? null
+                  : current.startIndex,
+              endIndex: notification.dragDetails != null
+                  ? null
+                  : current.endIndex,
+            );
           }
           return false;
         },
         child: PageView(
           controller: _pageController,
-          onPageChanged: (index) {
-            setState(() => _currPage = index.toDouble());
-          },
+          onPageChanged: (index) => _currPage = index.toDouble(),
           physics: const ClampingScrollPhysics(),
-          children: const [MatchupFeedScreen(), ChatInboxScreen(), LeaderboardScreen(), ProfileScreen()],
+          children: const [
+            MatchupFeedScreen(),
+            ChatInboxScreen(),
+            LeaderboardScreen(),
+            ProfileScreen(),
+          ],
         ),
       ),
     );
   }
 
-  double? startIndex;
-  double? endIndex;
-
   void onDestination(int index, Duration duration) {
-    setState(() {
-      startIndex = _currPage;
-      _currPage = index.toDouble();
-      endIndex = _currPage;
-      _pageController.animateToPage(index, duration: duration, curve: Curves.easeInOut);
-    });
+    final start = _currPage;
+    _currPage = index.toDouble();
+    _navProgress.value = (
+      position: _navProgress.value.position,
+      startIndex: start,
+      endIndex: _currPage,
+    );
+    _pageController.animateToPage(
+      index,
+      duration: duration,
+      curve: Curves.easeInOut,
+    );
   }
 }

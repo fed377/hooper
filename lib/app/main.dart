@@ -64,6 +64,7 @@ class HooperApp extends StatelessWidget {
               decoration: ShapeDecoration(
                 shape: RoundedSuperellipseBorder(borderRadius: .circular(50)),
                 color: Colors.white,
+                shadows: HooprTheme.instance.glass ? [] : [HooprTheme.instance.filledButtonShadow],
               ),
               child: child,
             );
@@ -82,9 +83,9 @@ class HooperApp extends StatelessWidget {
         ),
       ),
     );
-    return ListenableBuilder(
-      listenable: HooprColors.instance,
-      builder: (context, _) => MaterialApp(
+    return ValueListenableBuilder<bool>(
+      valueListenable: HooprTheme.instance.glassNotifier,
+      builder: (context, _, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
         home: const AuthGate(),
         theme: theme,

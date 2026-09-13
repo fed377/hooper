@@ -151,7 +151,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          if (HooprColors.instance.glass) BackgroundImage(),
+          if (HooprTheme.instance.glass) BackgroundImage(),
           SizedBox.expand(
             child: Column(
               mainAxisSize: .min,
@@ -254,7 +254,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             child: LinearProgressIndicator(
               value: (profile.elo - progress.$2) / (progress.$3 - progress.$2),
               color: Colors.black,
-              backgroundColor: HooprColors.instance.darkenColor,
+              backgroundColor: HooprTheme.instance.darkenColor,
               minHeight: 8,
             ),
           ),
@@ -372,7 +372,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return ClipRSuperellipse(
       borderRadius: .circular(16),
       child: Material(
-        color: isMe ? HooprColors.instance.darkenColor : Colors.transparent,
+        color: isMe ? HooprTheme.instance.darkenColor : Colors.transparent,
         child: InkWell(
           onTap: m.id == ''
               ? null
@@ -389,7 +389,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 const SizedBox(width: 12),
                 m.photoUrl == null
                     ? CircleAvatar(radius: 20, child: Text(m.displayName.isEmpty ? '?' : m.displayName[0]))
-                    : CircleAvatar(radius: 20, foregroundImage: CachedNetworkImageProvider(m.photoUrl!)),
+                    : CircleAvatar(
+                        radius: 20,
+                        foregroundImage: ResizeImage(CachedNetworkImageProvider(m.photoUrl!), width: 120),
+                      ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

@@ -23,104 +23,139 @@ class BlurredContainer extends StatelessWidget {
   final double? borderWidth;
   final int elevation;
 
+  // Fixed constants, so these were pure waste to rebuild on every asHero()
+  // call — hoisted to static and computed once.
+  static final TweenSequence<double> _heightSequence = _buildSequence([
+    1.0,
+    1.1,
+    1.0,
+  ]);
+  static final TweenSequence<double> _widthSequence = _buildSequence([
+    1.0,
+    0.95,
+    1.0,
+  ]);
+
+  static TweenSequence<double> _buildSequence(List<double> values) {
+    return TweenSequence<double>(
+      List.generate(values.length - 1, (i) {
+        final curr = values[i];
+        final next = values[i + 1];
+        return TweenSequenceItem(
+          tween: Tween<double>(
+            begin: curr,
+            end: next,
+          ).chain(CurveTween(curve: Curves.easeInOut)),
+          weight: 1,
+        );
+      }),
+    );
+  }
+
   Widget asHero(String tag) {
-    final scaleFactor = 0.5;
-    final heightValues = <double>[1.0, 1 + .2 * scaleFactor, 1];
-    final widthValues = <double>[1.0, 1 - .1 * scaleFactor, 1];
-
-    final TweenSequence<double> heightSequence = TweenSequence<double>(
-      List.generate(heightValues.length - 1, (i) {
-        final index = i;
-        final curr = heightValues[index];
-        final next = heightValues[index + 1];
-        return TweenSequenceItem(
-          tween: Tween<double>(begin: curr, end: next).chain(CurveTween(curve: Curves.easeInOut)),
-          weight: 1,
-        );
-      }),
-    );
-
-    final TweenSequence<double> widthSequence = TweenSequence<double>(
-      List.generate(widthValues.length - 1, (i) {
-        final index = i;
-        final curr = widthValues[index];
-        final next = widthValues[index + 1];
-        return TweenSequenceItem(
-          tween: Tween<double>(begin: curr, end: next).chain(CurveTween(curve: Curves.easeInOut)),
-          weight: 1,
-        );
-      }),
-    );
-
     return Hero(
       curve: Curves.easeInOut,
       transitionOnUserGestures: true,
       tag: tag,
-      flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
-        final smallWidget =
-            ((flightDirection == .push ? fromHeroContext : toHeroContext).widget as Hero).child as BlurredContainer;
-        final bigWidget =
-            ((flightDirection == .push ? toHeroContext : fromHeroContext).widget as Hero).child as BlurredContainer;
-        return Material(
-          type: .transparency,
-          child: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: animation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scaleX: widthSequence.evaluate(animation),
-                    scaleY: heightSequence.evaluate(animation),
-                    child: BlurredContainer(
-                      elevation: 1,
-                      child: SingleChildScrollView(
-                        child: Opacity(opacity: animation.value, child: bigWidget.child),
-                      ),
-                    ),
-                  );
-                },
+      flightShuttleBuilder:
+          (
+            flightContext,
+            animation,
+            flightDirection,
+            fromHeroContext,
+            toHeroContext,
+          ) {
+            final smallWidget =
+                ((flightDirection == .push ? fromHeroContext : toHeroContext)
+                                .widget
+                            as Hero)
+                        .child
+                    as BlurredContainer;
+            final bigWidget =
+                ((flightDirection == .push ? toHeroContext : fromHeroContext)
+                                .widget
+                            as Hero)
+                        .child
+                    as BlurredContainer;
+            return Material(
+              type: .transparency,
+              child: Stack(
+                children: [
+                  AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scaleX: _widthSequence.evaluate(animation),
+                        scaleY: _heightSequence.evaluate(animation),
+                        child: BlurredContainer(
+                          elevation: 1,
+                          child: SingleChildScrollView(
+                            child: Opacity(
+                              opacity: animation.value,
+                              child: bigWidget.child,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scaleX: _widthSequence.evaluate(animation),
+                        scaleY: _heightSequence.evaluate(animation),
+                        child: SingleChildScrollView(
+                          child: Opacity(
+                            opacity: 1 - animation.value,
+                            child: smallWidget.child,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-              AnimatedBuilder(
-                animation: animation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scaleX: widthSequence.evaluate(animation),
-                    scaleY: heightSequence.evaluate(animation),
-                    child: SingleChildScrollView(
-                      child: Opacity(opacity: 1 - animation.value, child: smallWidget.child),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
+            );
+          },
       child: this,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = HooprColors.instance;
+    final colors = HooprTheme.instance;
     final glass = colors.glass;
     final shouldBorder = (outline ?? glass);
-    Widget content = ClipRSuperellipse(
-      borderRadius: .circular(_radius),
-      child: BackdropFilter(
-        enabled: _sigma != 0 && glass,
-        filterConfig: .blur(sigmaX: _sigma, sigmaY: _sigma, tileMode: .mirror),
-        child: AnimatedContainer(
-          duration: Durations.medium1,
-          height: height,
-          decoration: ShapeDecoration(
-            color: glass ? (_color ?? colors.blurColor) : (_color ?? HooprColors.instance.elevationColors[elevation - 1]),
-            shape: RoundedSuperellipseBorder(
-              borderRadius: .circular(_radius),
-              side: !shouldBorder ? .none : .new(color: colors.borderColor, width: borderWidth ?? 1),
-            ),
+    // RepaintBoundary isolates the (expensive) BackdropFilter blur from
+    // repainting whenever an unrelated ancestor/sibling repaints.
+    Widget content = RepaintBoundary(
+      child: ClipRSuperellipse(
+        borderRadius: .circular(_radius),
+        child: BackdropFilter(
+          enabled: _sigma != 0 && glass,
+          filterConfig: .blur(
+            sigmaX: _sigma,
+            sigmaY: _sigma,
+            tileMode: .mirror,
           ),
-          child: child,
+          child: AnimatedContainer(
+            duration: Durations.medium1,
+            height: height,
+            decoration: ShapeDecoration(
+              color: glass
+                  ? (_color ?? colors.blurColor)
+                  : (_color ??
+                        HooprTheme.instance.elevationColors[elevation - 1]),
+              shape: RoundedSuperellipseBorder(
+                borderRadius: .circular(_radius),
+                side: !shouldBorder
+                    ? .none
+                    : .new(color: colors.borderColor, width: borderWidth ?? 1),
+              ),
+            ),
+            child: child,
+          ),
         ),
       ),
     );
@@ -129,7 +164,7 @@ class BlurredContainer extends StatelessWidget {
       content = DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(_radius),
-          boxShadow: const [BoxShadow(color: .fromARGB(45, 0, 0, 0), spreadRadius: -1, blurRadius: 20)],
+          boxShadow: [colors.blurredContainerShadow],
         ),
         child: content,
       );

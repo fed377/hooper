@@ -34,7 +34,7 @@ class MatchupCard extends ConsumerStatefulWidget {
 
 class _MatchupCardState extends ConsumerState<MatchupCard> {
   ButtonStyle get _tintedIconStyle => IconButton.styleFrom(
-    backgroundColor: HooprColors.instance.darkenColor,
+    backgroundColor: HooprTheme.instance.darkenColor,
     foregroundColor: Colors.black,
     shape: CircleBorder(),
     minimumSize: Size(0, 50),

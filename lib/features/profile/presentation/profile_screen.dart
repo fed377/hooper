@@ -15,6 +15,7 @@ import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/blurred_text_field.dart';
 import 'package:hooper/core/widgets/custom_data_box.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
+import 'package:hooper/core/widgets/elo_history_chart.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:hooper/features/matches/presentation/matches_list.dart';
 import 'package:hooper/features/profile/presentation/user_settings_screen.dart';
@@ -45,14 +46,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _bioController = TextEditingController();
   final _heightController = TextEditingController();
   PlayerPosition? _position;
-  int _visibilityRadiusKm = 10;
+  double _visibilityRadiusKm = 10;
 
   void _enterEditMode(PlayerProfile profile) {
     _nameController.text = profile.displayName;
     _bioController.text = profile.bio;
     _heightController.text = profile.height.toString();
     _position = playerPositionFromInt(profile.position);
-    _visibilityRadiusKm = profile.visibilityRadius;
+    _visibilityRadiusKm = profile.visibilityRadius.toDouble();
     setState(() => _editing = true);
   }
 
@@ -157,7 +158,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         bio: _bioController.text.trim(),
         heightCm: int.tryParse(_heightController.text.trim()),
         position: _position,
-        visibilityRadiusKm: _visibilityRadiusKm,
+        visibilityRadiusKm: _visibilityRadiusKm.toInt(),
         displayName: newName,
       );
       if (!mounted) return;
@@ -186,7 +187,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }
           return Stack(
             children: [
-              if (profile.bannerUrl != null && profile.bannerUrl != '' && HooprColors.instance.glass)
+              if (profile.bannerUrl != null && profile.bannerUrl != '' && HooprTheme.instance.glass)
                 SizedBox.expand(
                   child: ClipRect(
                     child: ImageFiltered(
@@ -248,7 +249,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int currItem = 0;
 
   Widget _buildViewMode(PlayerProfile profile) {
-    final hasBanner = profile.bannerUrl != null && profile.bannerUrl != '' && HooprColors.instance.glass;
+    final hasBanner = profile.bannerUrl != null && profile.bannerUrl != '' && HooprTheme.instance.glass;
     final surfaceColor = hasBanner ? const Color.fromARGB(110, 255, 255, 255) : null;
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -262,7 +263,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
-                crossAxisAlignment: .start,
+                crossAxisAlignment: .center,
                 children: [
                   Stack(
                     clipBehavior: Clip.none,
@@ -270,7 +271,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       CircleAvatar(
                         radius: 50,
                         backgroundImage: profile.photoUrl != null
-                            ? CachedNetworkImageProvider(profile.photoUrl!)
+                            ? ResizeImage(CachedNetworkImageProvider(profile.photoUrl!), width: 300)
                             : null,
                         child: profile.photoUrl == null ? Text(profile.displayName.substring(0, 1)) : null,
                       ),
@@ -376,6 +377,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 20),
+          EloHistoryChart(uid: profile.userId, fallbackElo: profile.elo, chartHeight: 110),
+          const SizedBox(height: 20),
           BlurredContainer(
             elevation: 1,
             sigma: 0,
@@ -436,7 +439,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildEditForm(String uid, String oldName) {
-    final colors = HooprColors.instance;
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
@@ -487,7 +489,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 12),
               BlurredContainer(
                 elevation: 1,
-                color: colors.blurColor,
                 borderWidth: 1.5,
                 radius: 22,
                 child: Column(
@@ -499,11 +500,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Text('Discovery radius: ${_visibilityRadiusKm.toStringAsFixed(0)} km'),
                     ),
                     Slider(
-                      value: _visibilityRadiusKm.toDouble(),
+                      value: _visibilityRadiusKm,
                       min: 1,
                       max: 50,
-                      divisions: 49,
-                      onChanged: (v) => setState(() => _visibilityRadiusKm = v.toInt()),
+                      activeColor: Colors.black,
+                      inactiveColor: HooprTheme.instance.darkenColor,
+                      onChanged: (v) => setState(() => _visibilityRadiusKm = v),
                     ),
                   ],
                 ),

@@ -17,5 +17,5 @@ export { onMatchRequestCreated } from "./notifications/onmatchrequest";
 export { onUserCreation } from "./onusercreation";
 export { reconcileScore } from "./scoring/reconcilescore";
 export { submitScore } from "./scoring/submitscore";
-//export {expireStaleRequests} from "./maintenance/expireStaleRequests";
+export { expireStaleRequests } from "./matching/expirestale";
 export { setUserStatus } from "./setuserstatus";

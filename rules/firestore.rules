@@ -75,10 +75,12 @@ service cloud.firestore {
 
       allow delete: if false;
 
-      // eloHistory/{entryId} — append-only, owner-only read. Written
-      // only by reconcileScore.
+      // eloHistory/{entryId} — append-only, written only by reconcileScore.
+      // Readable by any signed-in user, consistent with matches/{matchId}
+      // and playerProfiles.elo both being third-party-visible — a rating
+      // trend chart on someone else's profile needs this too.
       match /eloHistory/{entryId} {
-        allow read: if request.auth != null && resource.data.playerId == request.auth.uid;
+        allow read: if request.auth != null;
         allow write: if false;
       }
     }
@@ -101,13 +103,16 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────────────────────
     // matches/{matchId}
-    // Same reasoning as matchRequests — status transitions
-    // (scheduled → in_progress → awaiting_confirmation → confirmed/
-    // disputed/cancelled) all carry ELO/lock side effects that only
-    // Cloud Functions are trusted to perform.
+    // Deliberately readable by any signed-in user, not just the two
+    // participants — a finished match is meant to be viewable by third
+    // parties (public match history/results), not just sideA/sideB.
+    // Write side still goes entirely through Cloud Functions: status
+    // transitions (scheduled → in_progress → awaiting_confirmation →
+    // confirmed/disputed/cancelled) all carry ELO/lock side effects
+    // that only they are trusted to perform.
     // ─────────────────────────────────────────────────────────────
     match /matches/{matchId} {
-      allow read: if request.auth != null
+      allow read: if request.auth != null;
       allow write: if false; // acceptRequest/submitScore/reconcileScore/
                               // cancelMatch/startMatch only
     }
@@ -190,9 +195,18 @@ service cloud.firestore {
     }
 
     match /usernames/{userId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null
-      allow write: if false;
+      // Tied to actually owning that display name (checked against the
+      // caller's own playerProfiles doc, which the client always updates
+      // first) so a signed-in user can't squat arbitrary usernames they've
+      // never actually used. The stored uid also lets the owner (and only
+      // the owner) clean up their own old-name doc on rename.
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(["uid"])
+        && request.resource.data.uid == request.auth.uid
+        && get(/databases/$(database)/documents/playerProfiles/$(request.auth.uid)).data.displayName == userId;
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update: if false;
     }
   }
 }

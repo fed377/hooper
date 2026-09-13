@@ -23,6 +23,21 @@ class AuthGate extends ConsumerStatefulWidget {
 
 class _AuthGateState extends ConsumerState<AuthGate> {
   bool emailSent = false;
+  AuthStatus? _lastStatus;
+
+  // Whatever screen we return below sits at the bottom of the single app-wide
+  // Navigator; a screen pushed on top of it (e.g. a chat) would otherwise
+  // hide a status change — signed out, restricted, needs profile fill, etc.
+  // — until the user manually popped back. Force them back to the root the
+  // moment the status actually changes so the new gate screen is visible.
+  void _routeToRootOnStatusChange(AuthStatus status) {
+    if (_lastStatus != null && _lastStatus != status) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      });
+    }
+    _lastStatus = status;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,8 +45,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
     return authStatus.when(
       loading: () => const SplashScreen(),
-      error: (err, _) => Scaffold(body: Center(child: Text('Something went wrong: $err'))),
+      error: (err, _) =>
+          Scaffold(body: Center(child: Text('Something went wrong: $err'))),
       data: (state) {
+        _routeToRootOnStatusChange(state.status);
         switch (state.status) {
           case AuthStatus.unauthenticated:
             return const AppEnterScreen();
@@ -41,11 +58,17 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             return SplashScreen(
               showLoading: false,
               message: 'Follow the link in your email to verify your account',
-              widg: FilledButton(onPressed: () => FirebaseAuth.instance.signOut(), child: Text("Log Out")),
+              widg: FilledButton(
+                onPressed: () => FirebaseAuth.instance.signOut(),
+                child: Text("Log Out"),
+              ),
             );
 
           case AuthStatus.restricted:
-            return AccountRestrictedScreen(status: state.accountStatus ?? '', reason: state.restrictionReason ?? '');
+            return AccountRestrictedScreen(
+              status: state.accountStatus ?? '',
+              reason: state.restrictionReason ?? '',
+            );
 
           case AuthStatus.needsProfileFill:
             return const ProfileFillScreen();
@@ -54,7 +77,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             if (state.user != null) {
               FCMService().registerFcmToken(state.user!.uid);
             }
-            return HeartbeatWrapper(uid: state.user!.uid, child: const LockGate());
+            return HeartbeatWrapper(
+              uid: state.user!.uid,
+              child: const LockGate(),
+            );
         }
       },
     );
@@ -62,7 +88,9 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   void _sendVerificationEmail(User? user) {
     if (emailSent) return;
-    user?.sendEmailVerification().catchError((e) => log("Error sending email: $e"));
+    user?.sendEmailVerification().catchError(
+      (e) => log("Error sending email: $e"),
+    );
     setState(() => emailSent = true);
   }
 }

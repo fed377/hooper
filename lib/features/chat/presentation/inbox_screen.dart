@@ -34,7 +34,10 @@ class ChatInboxScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     const Text('No conversations yet'),
                     const SizedBox(height: 4),
-                    Text('Challenge someone from the feed to start one.', style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      'Challenge someone from the feed to start one.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
@@ -101,12 +104,24 @@ class _ConversationTile extends ConsumerWidget {
     if (uid == '') {
       return ListTile(
         leading: CircleAvatar(child: Text('')),
-        title: Text('Sample username', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: .bold)),
-        subtitle: Text("sample last message preview", maxLines: 1, overflow: .ellipsis),
+        title: Text(
+          'Sample username',
+          style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: .bold),
+        ),
+        subtitle: Text(
+          "sample last message preview",
+          maxLines: 1,
+          overflow: .ellipsis,
+        ),
         trailing: Column(
           mainAxisAlignment: .center,
           crossAxisAlignment: .end,
-          children: [Text(_relativeTime(.now()), style: Theme.of(context).textTheme.bodySmall)],
+          children: [
+            Text(
+              _relativeTime(.now()),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
       );
     }
@@ -115,10 +130,15 @@ class _ConversationTile extends ConsumerWidget {
     final lastActivity = chat.lastMessageAt ?? chat.createdAt;
 
     final requestId = chat.lastMatchRequestId;
-    final lastRequest = requestId == null ? null : ref.watch(matchRequestProvider(requestId));
+    final lastRequest = requestId == null
+        ? null
+        : ref.watch(matchRequestProvider(requestId));
     final statusChip = requestId == null
         ? null
-        : lastRequest?.maybeWhen(data: (request) => _statusChip(request.status), orElse: () => null);
+        : lastRequest?.maybeWhen(
+            data: (request) => _statusChip(request.status),
+            orElse: () => null,
+          );
 
     final imageUrl = ref.watch(playerPhotoUrlProvider(otherId));
 
@@ -126,7 +146,15 @@ class _ConversationTile extends ConsumerWidget {
       leading: imageUrl.when(
         data: (val) {
           if (val != '') {
-            return CircleAvatar(backgroundImage: CachedNetworkImageProvider(val));
+            // ResizeImage caps the decoded size to roughly the on-screen avatar
+            // size (radius 20 => ~120px at 3x), instead of decoding the source
+            // image at full resolution just to shrink it for a small avatar.
+            return CircleAvatar(
+              backgroundImage: ResizeImage(
+                CachedNetworkImageProvider(val),
+                width: 120,
+              ),
+            );
           } else {
             return Text(nameAsync.value?.substring(0, 1) ?? '?');
           }
@@ -134,7 +162,10 @@ class _ConversationTile extends ConsumerWidget {
         error: (_, _) => null,
         loading: () => null,
       ),
-      title: Text(nameAsync.value ?? 'Loading…', style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: .bold)),
+      title: Text(
+        nameAsync.value ?? 'Loading…',
+        style: TextTheme.of(context).bodyLarge?.copyWith(fontWeight: .bold),
+      ),
       subtitle: Text(
         utils.parseDateMessage(chat.lastMessagePreview ?? "No messages"),
         maxLines: 1,
@@ -144,11 +175,15 @@ class _ConversationTile extends ConsumerWidget {
         mainAxisAlignment: .center,
         crossAxisAlignment: .end,
         children: [
-          Text(_relativeTime(lastActivity), style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            _relativeTime(lastActivity),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           ?statusChip,
         ],
       ),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: chat.id))),
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: chat.id))),
     );
   }
 }
