@@ -148,7 +148,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             loading: () => const SplashScreen(),
             error: (err, st) {
               log(st.toString());
-              return Center(child: Text('Could not load this chat: $err'));
+              return Center(
+                child: Text('Could not load this chat: ${friendlyError(err)}'),
+              );
             },
             data: (chat) {
               final otherId = chat.otherParticipant(uid);

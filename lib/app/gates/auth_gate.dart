@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hooper/app/gates/lock_gate.dart';
 import 'package:hooper/core/services/fcmservice.dart';
 import 'package:hooper/core/utils/heartbeat_wrapper.dart';
+import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/loading_screen_widget.dart';
 import 'package:hooper/features/auth/data/app_auth_state.dart';
 import 'package:hooper/features/auth/presentation/account_restricted_screen.dart';
@@ -45,8 +46,14 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
     return authStatus.when(
       loading: () => const SplashScreen(),
-      error: (err, _) =>
-          Scaffold(body: Center(child: Text('Something went wrong: $err'))),
+      error: (err, st) {
+        log(st.toString());
+        return Scaffold(
+          body: Center(
+            child: Text('Something went wrong: ${friendlyError(err)}'),
+          ),
+        );
+      },
       data: (state) {
         _routeToRootOnStatusChange(state.status);
         switch (state.status) {

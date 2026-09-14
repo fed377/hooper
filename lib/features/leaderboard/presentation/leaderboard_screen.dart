@@ -56,7 +56,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
   void _onScroll() {
     if (!_hasMore || _loading) return;
-    final remaining = _controller.position.maxScrollExtent - _controller.position.pixels;
+    final remaining =
+        _controller.position.maxScrollExtent - _controller.position.pixels;
     if (remaining < 400.0) {
       _loadNextPage();
     }
@@ -81,7 +82,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     } catch (e, trace) {
       log(trace.toString());
       if (!mounted) return;
-      setState(() => _error = 'Could not load leaderboard: $e');
+      setState(
+        () => _error = 'Could not load leaderboard: ${friendlyError(e)}',
+      );
     } finally {
       if (mounted) setState(() => _firstLoad = false);
     }
@@ -99,8 +102,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         _hasMore = page.hasMore;
       });
     } catch (e) {
+      log(e.toString());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not load more: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load more: ${friendlyError(e)}')),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -130,8 +136,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         _nearMeLoaded = true;
       });
     } catch (e) {
+      log(e.toString());
       if (!mounted) return;
-      setState(() => _nearMeError = 'Could not load rankings: $e');
+      setState(
+        () => _nearMeError = 'Could not load rankings: ${friendlyError(e)}',
+      );
     } finally {
       if (mounted) setState(() => _nearMeLoading = false);
     }
@@ -161,9 +170,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   surfaceTintColor: Colors.transparent,
                   title: Text("Leaderboard"),
                 ),
-                Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), child: _buildStatsCard()),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: _buildStatsCard(),
+                ),
                 Expanded(
-                  child: Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 88), child: _buildLeaderboardPanel()),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
+                    child: _buildLeaderboardPanel(),
+                  ),
                 ),
               ],
             ),
@@ -206,7 +221,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 crossAxisAlignment: .start,
                 mainAxisSize: .min,
                 children: [
-                  Text('${profile.elo}', style: textTheme.headlineMedium?.copyWith(fontWeight: .bold)),
+                  Text(
+                    '${profile.elo}',
+                    style: textTheme.headlineMedium?.copyWith(
+                      fontWeight: .bold,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   EloRankChip(elo: profile.elo),
                 ],
@@ -216,16 +236,27 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               crossAxisAlignment: .end,
               mainAxisSize: .min,
               children: [
-                Text('RANK', style: textTheme.labelSmall?.copyWith(letterSpacing: 0.5)),
+                Text(
+                  'RANK',
+                  style: textTheme.labelSmall?.copyWith(letterSpacing: 0.5),
+                ),
                 const SizedBox(height: 4),
                 rankAsync.maybeWhen(
                   data: (ranks) {
                     final (upper, lower) = ranks;
                     if (upper < 0) return const SizedBox();
-                    final label = upper + 1 >= lower ? '#${upper + 1}' : '#${upper + 1}–$lower';
-                    return Text(label, style: textTheme.titleLarge?.copyWith(fontWeight: .bold));
+                    final label = upper + 1 >= lower
+                        ? '#${upper + 1}'
+                        : '#${upper + 1}–$lower';
+                    return Text(
+                      label,
+                      style: textTheme.titleLarge?.copyWith(fontWeight: .bold),
+                    );
                   },
-                  orElse: () => Text('—', style: textTheme.titleLarge?.copyWith(fontWeight: .bold)),
+                  orElse: () => Text(
+                    '—',
+                    style: textTheme.titleLarge?.copyWith(fontWeight: .bold),
+                  ),
                 ),
               ],
             ),
@@ -237,15 +268,25 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             children: [
               const Icon(Icons.emoji_events_rounded, color: Colors.amber),
               const SizedBox(width: 8),
-              Expanded(child: Text("You've reached ${tierLabel(tier)} — the highest tier!")),
+              Expanded(
+                child: Text(
+                  "You've reached ${tierLabel(tier)} — the highest tier!",
+                ),
+              ),
             ],
           )
         else ...[
           Row(
             mainAxisAlignment: .spaceBetween,
             children: [
-              Text('${progress.$3 - profile.elo} ELO to ${progress.$1}', style: textTheme.bodyMedium),
-              Text('${profile.elo} / ${progress.$3}', style: textTheme.bodyMedium),
+              Text(
+                '${progress.$3 - profile.elo} ELO to ${progress.$1}',
+                style: textTheme.bodyMedium,
+              ),
+              Text(
+                '${profile.elo} / ${progress.$3}',
+                style: textTheme.bodyMedium,
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -301,7 +342,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             children: [
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _loadFirstPage, child: const Text('Retry')),
+              FilledButton(
+                onPressed: _loadFirstPage,
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),
@@ -341,7 +385,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             children: [
               Text(_nearMeError!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _loadAroundMe, child: const Text('Retry')),
+              FilledButton(
+                onPressed: _loadAroundMe,
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),
@@ -376,7 +423,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         child: InkWell(
           onTap: m.id == ''
               ? null
-              : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchupViewScreen(matchup: m))),
+              : () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MatchupViewScreen(matchup: m),
+                  ),
+                ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -384,14 +435,24 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 SizedBox(
                   width: 32,
                   height: 32,
-                  child: Center(child: Text('$rank', style: textTheme.bodyLarge)),
+                  child: Center(
+                    child: Text('$rank', style: textTheme.bodyLarge),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 m.photoUrl == null
-                    ? CircleAvatar(radius: 20, child: Text(m.displayName.isEmpty ? '?' : m.displayName[0]))
+                    ? CircleAvatar(
+                        radius: 20,
+                        child: Text(
+                          m.displayName.isEmpty ? '?' : m.displayName[0],
+                        ),
+                      )
                     : CircleAvatar(
                         radius: 20,
-                        foregroundImage: ResizeImage(CachedNetworkImageProvider(m.photoUrl!), width: 120),
+                        foregroundImage: ResizeImage(
+                          CachedNetworkImageProvider(m.photoUrl!),
+                          width: 120,
+                        ),
                       ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -405,17 +466,29 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                             child: Text(
                               m.displayName,
                               overflow: TextOverflow.ellipsis,
-                              style: textTheme.titleSmall?.copyWith(fontWeight: .bold),
+                              style: textTheme.titleSmall?.copyWith(
+                                fontWeight: .bold,
+                              ),
                             ),
                           ),
                           if (isMe) ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                               child: const Text(
                                 'YOU',
-                                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
@@ -425,7 +498,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     ],
                   ),
                 ),
-                Text('${m.elo}', style: textTheme.titleMedium?.copyWith(fontWeight: .bold)),
+                Text(
+                  '${m.elo}',
+                  style: textTheme.titleMedium?.copyWith(fontWeight: .bold),
+                ),
               ],
             ),
           ),

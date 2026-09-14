@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -51,6 +52,34 @@ class HooprTheme {
     spreadRadius: -1,
     blurRadius: 20,
   );
+}
+
+/// Maps an exception to a short, human-readable message safe to show a user
+/// — never interpolate a raw exception (`'$e'`) directly into UI text; log
+/// the original via `log()` for debugging instead.
+String friendlyError(Object error) {
+  if (error is FirebaseException) {
+    switch (error.code) {
+      case 'permission-denied':
+        return "You don't have permission to do that.";
+      case 'not-found':
+        return "That couldn't be found — it may have been removed.";
+      case 'unavailable':
+      case 'network-request-failed':
+        return 'No connection right now — check your internet and try again.';
+      case 'already-exists':
+        return 'That already exists.';
+      case 'deadline-exceeded':
+        return 'That took too long. Please try again.';
+      default:
+        return 'Something went wrong. Please try again.';
+    }
+  }
+  final text = error.toString();
+  if (text.contains('SocketException') || text.contains('Network')) {
+    return 'No connection right now — check your internet and try again.';
+  }
+  return 'Something went wrong. Please try again.';
 }
 
 String _getDaySuffix(int day) {

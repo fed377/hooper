@@ -10,7 +10,9 @@ class FirestorePlayerProfileRepository {
   final FirebaseFirestore _firestore;
 
   Stream<PlayerProfile> watchMyProfile(String uid) {
-    return _firestore.collection('playerProfiles').doc(uid).snapshots().map((snap) {
+    return _firestore.collection('playerProfiles').doc(uid).snapshots().map((
+      snap,
+    ) {
       final data = snap.data();
       if (data == null) {
         throw StateError('playerProfiles/$uid does not exist yet.');
@@ -34,6 +36,7 @@ class FirestorePlayerProfileRepository {
     String? photoUrl,
     int? heightCm,
     PlayerPosition? position,
+    Gender? gender,
     String? bio,
     int? visibilityRadiusKm,
     String? displayName,
@@ -42,24 +45,45 @@ class FirestorePlayerProfileRepository {
     if (photoUrl != null) updates['photoUrl'] = photoUrl;
     if (heightCm != null) updates['height'] = heightCm;
     if (position != null) updates['position'] = playerPositionToInt(position);
+    if (gender != null) updates['gender'] = genderToInt(gender);
     if (bio != null) updates['bio'] = bio;
-    if (visibilityRadiusKm != null) updates['visibilityRadius'] = visibilityRadiusKm;
+    if (visibilityRadiusKm != null)
+      updates['visibilityRadius'] = visibilityRadiusKm;
     if (displayName != null) updates['displayName'] = displayName;
 
     if (updates.isEmpty) return;
     await _firestore.collection('playerProfiles').doc(uid).update(updates);
     if (displayName != oldName) {
-      await _firestore.collection('usernames').doc(updates['displayName']).set({'uid': uid});
+      await _firestore.collection('usernames').doc(updates['displayName']).set({
+        'uid': uid,
+      });
       await _firestore.collection('usernames').doc(oldName).delete();
     }
   }
 
   Future<void> touchLastActive(String uid) {
-    return _firestore.collection('playerProfiles').doc(uid).update({'lastActive': FieldValue.serverTimestamp()});
+    return _firestore.collection('playerProfiles').doc(uid).update({
+      'lastActive': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> updateLocation(String uid, GeoPoint location) {
-    final hash = geohashEncode(location.latitude, location.longitude, precision: 9);
-    return _firestore.collection('playerProfiles').doc(uid).update({'homeLocation': location, 'geohash': hash});
+    // playerProfiles is readable by any signed-in user (needed for the
+    // discovery feed's geohash query), so storing the raw GPS fix would mean
+    // sharing a player's literal address with every other user. Rounding to
+    // ~1km before it's ever written closes that off at the data layer,
+    // rather than relying on a UI disclaimer alone — "nearby" matchmaking
+    // doesn't need house-level precision anyway.
+    final coarse = _coarsenForPrivacy(location);
+    final hash = geohashEncode(coarse.latitude, coarse.longitude, precision: 9);
+    return _firestore.collection('playerProfiles').doc(uid).update({
+      'homeLocation': coarse,
+      'geohash': hash,
+    });
+  }
+
+  GeoPoint _coarsenForPrivacy(GeoPoint point) {
+    double round2(double v) => (v * 100).round() / 100;
+    return GeoPoint(round2(point.latitude), round2(point.longitude));
   }
 }

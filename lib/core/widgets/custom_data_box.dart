@@ -3,7 +3,7 @@ import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/blurred_container.dart';
 
 class CustomDataBox extends StatelessWidget {
-  const new({super.key, required this.value, required this.label, required this.icon, this.sigma = 0, this.color});
+  const new({super.key, required this.value, required this.label, required this.icon, this.sigma = 30, this.color});
 
   final String value;
   final String label;

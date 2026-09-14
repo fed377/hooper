@@ -11,11 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooper/core/utils/date_formatter.dart';
+import 'package:hooper/core/utils/face_detection.dart';
+import 'package:hooper/core/utils/image_crop.dart';
 import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/background_image.dart';
 import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/blurred_text_field.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
+import 'package:hooper/core/widgets/gender_picker.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:hooper/features/profile/data/player_profile.dart';
 import 'package:image_picker/image_picker.dart';
@@ -117,8 +120,12 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
         GeoPoint(position.latitude, position.longitude),
       );
     } catch (e) {
+      log(e.toString());
       if (!mounted) return;
-      setState(() => data.generalError = 'Could not get your location: $e');
+      setState(
+        () => data.generalError =
+            'Could not get your location: ${friendlyError(e)}',
+      );
     }
   }
 
@@ -133,6 +140,7 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
           .update({
             'height': height,
             'position': playerPositionToInt(data.position),
+            'gender': genderToInt(data.gender),
             'bio': bio,
             'displayName': name,
           });
@@ -407,6 +415,12 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
               onSelectionChanged: (set) => setState(() => data.position = set),
             ),
             const SizedBox(height: 22 - 4),
+            GenderPicker(
+              enabled: canEdit,
+              selected: data.gender,
+              onSelectionChanged: (set) => setState(() => data.gender = set),
+            ),
+            const SizedBox(height: 22 - 4),
             BlurredFormField(
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -484,18 +498,36 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
   }
 
   void pickProfileImage() async {
+    // Camera-only (no gallery), so this can't just be a stolen photo of
+    // someone else pulled off the internet — whoever's on the other end of
+    // the match has to have been in front of the phone right now.
     final picker = ImagePicker();
     final newImage = await picker.pickImage(
-      source: ImageSource.gallery,
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
       maxWidth: 512,
       maxHeight: 512,
       imageQuality: 50,
     );
-    if (newImage != null) {
-      setState(() {
-        data.profileImage = newImage;
-      });
+    if (newImage == null) return;
+
+    // Not identity verification — it can't tell who the face belongs to —
+    // but it rejects the laziest cases (a blank wall, a random object, a
+    // screenshot) before the photo ever gets used as a profile picture.
+    final hasFace = await imageContainsFace(newImage.path);
+    if (!hasFace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "We couldn't find a face in that photo. Make sure your face is clearly visible and try again.",
+          ),
+        ),
+      );
+      return;
     }
+
+    setState(() => data.profileImage = newImage);
   }
 
   void clearProfileImage() {
@@ -508,11 +540,12 @@ class _ProfileFillScreenState extends ConsumerState<ProfileFillScreen> {
       source: ImageSource.gallery,
       imageQuality: 100,
     );
-    if (newImage != null) {
-      setState(() {
-        data.bannerImage = newImage;
-      });
-    }
+    if (newImage == null) return;
+
+    final cropped = await cropImage(newImage.path, title: 'Crop banner');
+    if (cropped == null) return;
+
+    setState(() => data.bannerImage = cropped);
   }
 
   void clearBannerImage() {
@@ -605,6 +638,7 @@ class FormData {
   String? bio;
   int? height;
   PlayerPosition position = .guard;
+  Gender gender = .woman;
   DateTime? birthday;
 
   String? generalError;

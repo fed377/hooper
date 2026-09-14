@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' show log;
+import 'dart:math' show Random;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -22,7 +23,10 @@ class ProposalResponse {
   ProposalResponse({required this.requestId, required this.chatId});
 
   factory ProposalResponse.fromJson(Map<String, dynamic> data) {
-    return ProposalResponse(chatId: data['chatId'] as String, requestId: data['matchRequestId'] as String);
+    return ProposalResponse(
+      chatId: data['chatId'] as String,
+      requestId: data['matchRequestId'] as String,
+    );
   }
 }
 
@@ -31,10 +35,15 @@ class MatchupScanError {
   MatchupScanError(this.what);
 }
 
+const _cellLimit = 50;
+
 class FirestoreMatchupRepository {
-  FirestoreMatchupRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _functions = functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
+  FirestoreMatchupRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions =
+           functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
@@ -48,22 +57,42 @@ class FirestoreMatchupRepository {
       return Stream.empty();
     }
     final precision = geohashPrecisionForRadiusKm(radiusKm);
-    final centerHash = geohashEncode(center.latitude, center.longitude, precision: precision);
+    final centerHash = geohashEncode(
+      center.latitude,
+      center.longitude,
+      precision: precision,
+    );
     final cells = [centerHash, ...geohashNeighbors(centerHash)];
+
+    // Picked once per call (i.e. once per subscription — a pull-to-refresh
+    // invalidates the provider and calls this again with a fresh threshold),
+    // so a dense cell samples a different slice of its shardKey range each
+    // time instead of always returning the same users in the same order.
+    final threshold = Random().nextDouble();
 
     final controller = StreamController<List<Matchup>>.broadcast();
     final perCellDocs = <int, Map<String, Map<String, dynamic>>>{};
-    final haveFirstEmission = List<bool>.filled(cells.length, false);
+    // Two subscriptions per cell (shardKey >= threshold, then the wraparound
+    // shardKey < threshold) so together they still cover the whole cell.
+    final haveFirstEmission = List<bool>.filled(cells.length * 2, false);
     final subs = <StreamSubscription>[];
     Set<String> restrictedUserIds = {};
 
     Future<void> fetchBlockLists() async {
       try {
-        final myBlocks = await _firestore.collection("preferences").doc(excludeUserId).get();
-        final blockedByMe = (myBlocks['blockedUsers'] as List? ?? []).cast<String>();
+        final myBlocks = await _firestore
+            .collection("preferences")
+            .doc(excludeUserId)
+            .get();
+        final blockedByMe = (myBlocks['blockedUsers'] as List? ?? [])
+            .cast<String>();
 
-        final blockedByThem = await _firestore.collection("preferences").doc(excludeUserId).get();
-        final blockedMe = (blockedByThem['blockedBy'] as List? ?? []).cast<String>();
+        final blockedByThem = await _firestore
+            .collection("preferences")
+            .doc(excludeUserId)
+            .get();
+        final blockedMe = (blockedByThem['blockedBy'] as List? ?? [])
+            .cast<String>();
 
         restrictedUserIds = {...blockedByMe, ...blockedMe};
       } catch (e) {
@@ -104,7 +133,13 @@ class FirestoreMatchupRepository {
           continue;
         }
 
-        results.add(Matchup.fromJson({...data, 'id': entry.key, 'distanceKm': distanceKm}));
+        results.add(
+          Matchup.fromJson({
+            ...data,
+            'id': entry.key,
+            'distanceKm': distanceKm,
+          }),
+        );
       }
       results.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
       controller.add(results);
@@ -116,21 +151,52 @@ class FirestoreMatchupRepository {
         log(x);
       }
       for (var i = 0; i < cells.length; i++) {
-        final cellIndex = i;
         final cell = cells[i];
-        final sub = _firestore
+        final primaryIndex = i * 2;
+        final wraparoundIndex = i * 2 + 1;
+
+        // Capped per cell so a dense area (thousands of users in one
+        // geohash cell) can't turn this into an unbounded fetch. Split into
+        // two bounded queries — shardKey >= threshold, then the wraparound
+        // shardKey < threshold — instead of one, so together they still
+        // cover the whole cell while each fetch only ever samples a random
+        // slice of it (needs the (geohash, shardKey) composite index in
+        // rules/firestore.indexes.json).
+        final primarySub = _firestore
             .collection('playerProfiles')
+            .where('geohash', isGreaterThanOrEqualTo: cell)
+            .where('geohash', isLessThan: '$cell~')
+            .where('shardKey', isGreaterThanOrEqualTo: threshold)
             .orderBy('geohash')
-            .startAt([cell])
-            .endAt(['$cell~'])
-            // .where('status', isEqualTo: 'active')
+            .orderBy('shardKey')
+            .limit(_cellLimit)
             .snapshots()
             .listen((snap) {
-              perCellDocs[cellIndex] = {for (final d in snap.docs) d.id: d.data()};
-              haveFirstEmission[cellIndex] = true;
+              perCellDocs[primaryIndex] = {
+                for (final d in snap.docs) d.id: d.data(),
+              };
+              haveFirstEmission[primaryIndex] = true;
               emit();
             }, onError: controller.addError);
-        subs.add(sub);
+        subs.add(primarySub);
+
+        final wraparoundSub = _firestore
+            .collection('playerProfiles')
+            .where('geohash', isGreaterThanOrEqualTo: cell)
+            .where('geohash', isLessThan: '$cell~')
+            .where('shardKey', isLessThan: threshold)
+            .orderBy('geohash')
+            .orderBy('shardKey')
+            .limit(_cellLimit)
+            .snapshots()
+            .listen((snap) {
+              perCellDocs[wraparoundIndex] = {
+                for (final d in snap.docs) d.id: d.data(),
+              };
+              haveFirstEmission[wraparoundIndex] = true;
+              emit();
+            }, onError: controller.addError);
+        subs.add(wraparoundSub);
       }
     });
 
@@ -165,7 +231,10 @@ class FirestoreMatchupRepository {
       final data = Map<String, dynamic>.from(result.data as Map);
       return ProposalResponse.fromJson(data);
     } on FirebaseFunctionsException catch (e) {
-      throw ProposalException(e.code, e.message ?? 'Could not send challenge. Try again.');
+      throw ProposalException(
+        e.code,
+        e.message ?? 'Could not send challenge. Try again.',
+      );
     }
   }
 }

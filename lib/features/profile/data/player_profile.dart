@@ -18,7 +18,28 @@ int playerPositionToInt(PlayerPosition? position) {
 
 final _positions = ["Guard", "Forward", "Center"];
 
-String playerPositionToString(PlayerPosition? position) => _positions[playerPositionToInt(position)];
+String playerPositionToString(PlayerPosition? position) =>
+    _positions[playerPositionToInt(position)];
+
+enum Gender { woman, man, other }
+
+Gender? genderFromInt(int? value) => switch (value) {
+  1 => .woman,
+  2 => .man,
+  3 => .other,
+  _ => null,
+};
+
+int genderToInt(Gender? gender) {
+  if (gender == .woman) return 1;
+  if (gender == .man) return 2;
+  if (gender == .other) return 3;
+  return 0;
+}
+
+final _genders = ["Not set", "Woman", "Man", "Other"];
+
+String genderToString(Gender? gender) => _genders[genderToInt(gender)];
 
 class PlayerProfile {
   final String userId;
@@ -36,14 +57,16 @@ class PlayerProfile {
   int visibilityRadius;
   final GeoPoint? homeLocation;
   final DateTime? lastActiveAt;
+  final int? gender;
 
   PlayerPosition? get pos => playerPositionFromInt(position);
+  Gender? get genderValue => genderFromInt(gender);
 
   PlayerProfile({
     required this.userId,
     required this.displayName,
     required this.photoUrl,
-    required this.bannerUrl, 
+    required this.bannerUrl,
     required this.height,
     required this.position,
     required this.bio,
@@ -55,6 +78,7 @@ class PlayerProfile {
     required this.visibilityRadius,
     this.homeLocation,
     this.lastActiveAt,
+    this.gender,
   });
 
   factory PlayerProfile.fromJson(Map<String, dynamic> json) {
@@ -69,11 +93,14 @@ class PlayerProfile {
       elo: json['elo'] as int,
       gamesPlayed1v1: json['gamesPlayed1v1'] as int,
       recentForm: (json['recentForm'] as List).cast<bool>(),
-      lockedMatchIds: (json['lockedMatchIds'] as List?)?.cast<String>() ?? const [],
-      completedMatchIds: (json['completedMatches'] as List?)?.cast<String>() ?? const [],
+      lockedMatchIds:
+          (json['lockedMatchIds'] as List?)?.cast<String>() ?? const [],
+      completedMatchIds:
+          (json['completedMatches'] as List?)?.cast<String>() ?? const [],
       visibilityRadius: json['visibilityRadius'] as int,
       homeLocation: json['homeLocation'] as GeoPoint?,
       lastActiveAt: (json['lastActive'] as Timestamp?)?.toDate(),
+      gender: json['gender'] as int?,
     );
   }
 

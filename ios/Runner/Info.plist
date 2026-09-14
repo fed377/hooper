@@ -46,6 +46,8 @@
 	<string>Main</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
     <string>Your location is required to locate nearby players. </string>
+	<key>NSCameraUsageDescription</key>
+    <string>Hooper uses your camera to take a live profile photo, so other players know they're matching with a real person.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

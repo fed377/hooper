@@ -1,5 +1,8 @@
+import 'dart:developer' show log;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/loading_screen_widget.dart';
 import 'package:hooper/features/matches/data/match_repo.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -12,10 +15,12 @@ class CurrentlyPlayingScreen extends ConsumerStatefulWidget {
   const CurrentlyPlayingScreen({super.key, required this.matchId});
 
   @override
-  ConsumerState<CurrentlyPlayingScreen> createState() => _CurrentlyPlayingScreenState();
+  ConsumerState<CurrentlyPlayingScreen> createState() =>
+      _CurrentlyPlayingScreenState();
 }
 
-class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen> {
+class _CurrentlyPlayingScreenState
+    extends ConsumerState<CurrentlyPlayingScreen> {
   int _myScore = 11;
   int _opponentScore = 7;
   bool _submitting = false;
@@ -29,7 +34,11 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     try {
       await ref
           .read(matchRepositoryProvider)
-          .submitScore(matchId: widget.matchId, myScore: _myScore, opponentScore: _opponentScore);
+          .submitScore(
+            matchId: widget.matchId,
+            myScore: _myScore,
+            opponentScore: _opponentScore,
+          );
     } on MatchActionException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -38,14 +47,26 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     }
   }
 
-  Future<void> _confirmCancel(BuildContext context, WidgetRef ref, MatchDoc match, {abandon = false}) async {
+  Future<void> _confirmCancel(
+    BuildContext context,
+    WidgetRef ref,
+    MatchDoc match, {
+    abandon = false,
+  }) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('${abandon ? "Abandon" : "Cancel"} this match?'),
-        content: Row(children: [Text("This can't be undone, you'll both need to reschedule. ")]),
+        content: Row(
+          children: [
+            Text("This can't be undone, you'll both need to reschedule. "),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Back')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Back'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text('${abandon ? "Abandon" : "Cancel"}  match'),
@@ -58,11 +79,13 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     try {
       await ref.read(matchRepositoryProvider).cancelMatch(match.id);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Match cancelled.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Match cancelled.')));
       }
     } on MatchActionException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -73,12 +96,21 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
     final matchAsync = ref.watch(matchProvider(widget.matchId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Match in progress'), automaticallyImplyLeading: false),
+      appBar: AppBar(
+        title: const Text('Match in progress'),
+        automaticallyImplyLeading: false,
+      ),
       body: matchAsync.when(
         loading: () => SplashScreen(),
-        error: (err, _) => Center(
-          child: Padding(padding: const EdgeInsets.all(24), child: Text('Could not load this match: $err')),
-        ),
+        error: (err, st) {
+          log(st.toString());
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('Could not load this match: ${friendlyError(err)}'),
+            ),
+          );
+        },
         data: (match) {
           if ((match.appearedIds ?? []).length >= 2) {
             return _buildBody(match, uid);
@@ -87,9 +119,14 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
               child: Column(
                 mainAxisSize: .min,
                 children: [
-                  Text("Your opponent hasn't shown up. \nPlease wait for them to show up\nor cancel"),
+                  Text(
+                    "Your opponent hasn't shown up. \nPlease wait for them to show up\nor cancel",
+                  ),
                   const SizedBox(height: 8),
-                  FilledButton(onPressed: () => _confirmCancel(context, ref, match), child: Text("Cancel Match")),
+                  FilledButton(
+                    onPressed: () => _confirmCancel(context, ref, match),
+                    child: Text("Cancel Match"),
+                  ),
                 ],
               ),
             );
@@ -118,14 +155,22 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
       return const Center(
         child: Column(
           mainAxisSize: .min,
-          children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Starting your match…')],
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 12),
+            Text('Starting your match…'),
+          ],
         ),
       );
     }
 
     final otherSide = mySide == 'A' ? 'B' : 'A';
-    final theirReport = match.reportedBy(otherSide); // (theirScore, myScoreAccordingToThem)
-    final myReport = match.reportedBy(mySide); // (myScore, theirScoreAccordingToMe)
+    final theirReport = match.reportedBy(
+      otherSide,
+    ); // (theirScore, myScoreAccordingToThem)
+    final myReport = match.reportedBy(
+      mySide,
+    ); // (myScore, theirScoreAccordingToMe)
     final iHaveSubmitted = myReport != null;
 
     return ListView(
@@ -137,7 +182,11 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 4),
-        Text(match.court, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+        Text(
+          match.court,
+          style: Theme.of(context).textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 20),
 
         if (match.status == MatchStatus.disputed)
@@ -145,8 +194,14 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.errorContainer, borderRadius: .circular(12)),
-            child: const Text("Your scores didn't match. Double-check and submit again.", textAlign: TextAlign.center),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: .circular(12),
+            ),
+            child: const Text(
+              "Your scores didn't match. Double-check and submit again.",
+              textAlign: TextAlign.center,
+            ),
           ),
 
         _SubmissionCard(
@@ -157,12 +212,20 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
         const SizedBox(height: 12),
 
         if (iHaveSubmitted && match.status != MatchStatus.disputed) ...[
-          _SubmissionCard(title: 'Your report', report: myReport, waitingText: ''),
+          _SubmissionCard(
+            title: 'Your report',
+            report: myReport,
+            waitingText: '',
+          ),
           const SizedBox(height: 16),
           const Center(
             child: Column(
               mainAxisSize: .min,
-              children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Waiting for confirmation…')],
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Waiting for confirmation…'),
+              ],
             ),
           ),
         ] else
@@ -184,11 +247,19 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
         Row(
           mainAxisAlignment: .center,
           children: [
-            _ScoreStepper(label: 'You', value: _myScore, onChanged: (v) => setState(() => _myScore = v)),
+            _ScoreStepper(
+              label: 'You',
+              value: _myScore,
+              onChanged: (v) => setState(() => _myScore = v),
+            ),
             const SizedBox(width: 24),
             Text('–', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(width: 24),
-            _ScoreStepper(label: 'Them', value: _opponentScore, onChanged: (v) => setState(() => _opponentScore = v)),
+            _ScoreStepper(
+              label: 'Them',
+              value: _opponentScore,
+              onChanged: (v) => setState(() => _opponentScore = v),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -199,12 +270,18 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         ],
         const SizedBox(height: 16),
         Skeletonizer(
           enabled: _submitting,
-          child: FilledButton(onPressed: _submitting ? null : _submit, child: const Text('Submit score')),
+          child: FilledButton(
+            onPressed: _submitting ? null : _submit,
+            child: const Text('Submit score'),
+          ),
         ),
         const SizedBox(height: 8),
       ],
@@ -214,17 +291,25 @@ class _CurrentlyPlayingScreenState extends ConsumerState<CurrentlyPlayingScreen>
 
 class _SubmissionCard extends StatelessWidget {
   final String title;
-  final (int, int)? report; // (theirScore-from-their-view, yourScore-from-their-view)
+  final (int, int)?
+  report; // (theirScore-from-their-view, yourScore-from-their-view)
   final String waitingText;
 
-  const _SubmissionCard({required this.title, required this.report, required this.waitingText});
+  const _SubmissionCard({
+    required this.title,
+    required this.report,
+    required this.waitingText,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHigh, borderRadius: .circular(12)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: .circular(12),
+      ),
       child: Column(
         crossAxisAlignment: .start,
         children: [
@@ -233,7 +318,10 @@ class _SubmissionCard extends StatelessWidget {
           if (report == null)
             Text(waitingText, style: Theme.of(context).textTheme.bodyMedium)
           else
-            Text('${report!.$1} – ${report!.$2}', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              '${report!.$1} – ${report!.$2}',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
         ],
       ),
     );
@@ -245,7 +333,11 @@ class _ScoreStepper extends StatelessWidget {
   final int value;
   final ValueChanged<int> onChanged;
 
-  const _ScoreStepper({required this.label, required this.value, required this.onChanged});
+  const _ScoreStepper({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -253,7 +345,10 @@ class _ScoreStepper extends StatelessWidget {
       children: [
         Text(label, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
-        IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => onChanged(value + 1)),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          onPressed: () => onChanged(value + 1),
+        ),
         Text('$value', style: Theme.of(context).textTheme.headlineMedium),
         IconButton(
           icon: const Icon(Icons.remove_circle_outline),

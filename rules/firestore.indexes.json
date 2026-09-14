@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "playerProfiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "shardKey", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

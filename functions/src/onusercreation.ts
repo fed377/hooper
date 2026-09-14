@@ -36,7 +36,12 @@ export const onUserCreation = functions.identity.beforeUserCreated(
       bio: "",
       height: 0,
       position: 1,
+      gender: 0,
       status: "active",
+      // Lets nearbyMatchups cap reads per geohash cell (orderBy geohash,
+      // shardKey) without always surfacing the same lexicographically-first
+      // users in a dense cell.
+      shardKey: Math.random(),
     });
 
     await batch.commit();

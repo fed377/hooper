@@ -10,12 +10,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:hooper/core/utils/face_detection.dart';
+import 'package:hooper/core/utils/image_crop.dart';
 import 'package:hooper/core/utils/utils.dart';
 import 'package:hooper/core/widgets/blurred_container.dart';
 import 'package:hooper/core/widgets/blurred_text_field.dart';
 import 'package:hooper/core/widgets/custom_data_box.dart';
 import 'package:hooper/core/widgets/dark_buttons.dart';
 import 'package:hooper/core/widgets/elo_history_chart.dart';
+import 'package:hooper/core/widgets/gender_picker.dart';
 import 'package:hooper/core/widgets/skeleton_widget.dart';
 import 'package:hooper/features/matches/presentation/matches_list.dart';
 import 'package:hooper/features/profile/presentation/user_settings_screen.dart';
@@ -46,6 +49,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _bioController = TextEditingController();
   final _heightController = TextEditingController();
   PlayerPosition? _position;
+  Gender? _gender;
   double _visibilityRadiusKm = 10;
 
   void _enterEditMode(PlayerProfile profile) {
@@ -53,6 +57,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _bioController.text = profile.bio;
     _heightController.text = profile.height.toString();
     _position = playerPositionFromInt(profile.position);
+    _gender = profile.genderValue;
     _visibilityRadiusKm = profile.visibilityRadius.toDouble();
     setState(() => _editing = true);
   }
@@ -64,17 +69,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Location permission is needed to show up in nearby matchups.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location permission is needed to show up in nearby matchups.',
+            ),
+          ),
+        );
         return;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Turn on location services and try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Turn on location services and try again.'),
+          ),
+        );
         return;
       }
 
@@ -83,10 +96,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           .read(playerProfileRepositoryProvider)
           .updateLocation(uid, GeoPoint(position.latitude, position.longitude));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location updated.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Location updated.')));
     } catch (e) {
+      log(e.toString());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update location: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not update location: ${friendlyError(e)}'),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _updatingLocation = false);
     }
@@ -94,46 +113,100 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _changeImage(String uid, {required bool isBanner}) async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
+    // Profile photo: camera-only (front camera, no gallery) so it can't be a
+    // stolen photo of someone else — banner stays a gallery pick since it's
+    // decorative, not an identity signal.
+    var image = await picker.pickImage(
+      source: isBanner ? ImageSource.gallery : ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
       maxWidth: isBanner ? null : 512,
       maxHeight: isBanner ? null : 512,
       imageQuality: isBanner ? 100 : 50,
     );
     if (image == null) return;
 
+    if (isBanner) {
+      final cropped = await cropImage(image.path, title: 'Crop banner');
+      if (cropped == null) return;
+      image = cropped;
+    } else {
+      // Not identity verification — it can't tell who the face belongs to —
+      // but it rejects the laziest cases before the photo is ever uploaded.
+      final hasFace = await imageContainsFace(image.path);
+      if (!hasFace) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "We couldn't find a face in that photo. Make sure your face is clearly visible and try again.",
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => isBanner ? _uploadingBanner = true : _uploadingPhoto = true);
     try {
-      await _uploadImage(uid: uid, propertyName: isBanner ? 'bannerUrl' : 'photoUrl', image: image);
+      await _uploadImage(
+        uid: uid,
+        propertyName: isBanner ? 'bannerUrl' : 'photoUrl',
+        image: image,
+      );
     } catch (e, trace) {
       log(trace.toString());
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not update ${isBanner ? 'banner' : 'photo'}: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not update ${isBanner ? 'banner' : 'photo'}: ${friendlyError(e)}',
+          ),
+        ),
+      );
     } finally {
-      if (mounted) setState(() => isBanner ? _uploadingBanner = false : _uploadingPhoto = false);
+      if (mounted)
+        setState(
+          () => isBanner ? _uploadingBanner = false : _uploadingPhoto = false,
+        );
     }
   }
 
-  Future<void> _uploadImage({required String uid, required String propertyName, required XFile image}) async {
+  Future<void> _uploadImage({
+    required String uid,
+    required String propertyName,
+    required XFile image,
+  }) async {
     final file = File(image.path);
     final isBanner = propertyName == 'bannerUrl';
 
     final compressedFile = await FlutterImageCompress.compressAndGetFile(
       file.absolute.path,
-      file.absolute.path.replaceAll('.jpg', '_compressed.jpg').replaceAll('.png', '_compressed.png'),
+      file.absolute.path
+          .replaceAll('.jpg', '_compressed.jpg')
+          .replaceAll('.png', '_compressed.png'),
       quality: isBanner ? 85 : 60,
       minWidth: isBanner ? 1080 : 256,
       minHeight: isBanner ? 1080 : 256,
     );
 
-    final uploadFile = compressedFile != null ? File(compressedFile.path) : file;
+    final uploadFile = compressedFile != null
+        ? File(compressedFile.path)
+        : file;
 
-    final storageRef = FirebaseStorage.instance.ref().child('${propertyName}s').child('$uid.jpg');
-    final uploadTask = await storageRef.putFile(uploadFile, SettableMetadata(contentType: 'image/jpeg'));
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('${propertyName}s')
+        .child('$uid.jpg');
+    final uploadTask = await storageRef.putFile(
+      uploadFile,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
     final downloadUrl = await uploadTask.ref.getDownloadURL();
 
-    await FirebaseFirestore.instance.collection('playerProfiles').doc(uid).update({propertyName: downloadUrl});
+    await FirebaseFirestore.instance
+        .collection('playerProfiles')
+        .doc(uid)
+        .update({propertyName: downloadUrl});
   }
 
   Future<void> _save(String uid, String oldName) async {
@@ -147,8 +220,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final taken = await ref.read(isNameTakenProvider(newName).future);
         if (taken) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('That display name is already taken.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('That display name is already taken.'),
+            ),
+          );
           return;
         }
       }
@@ -158,14 +234,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         bio: _bioController.text.trim(),
         heightCm: int.tryParse(_heightController.text.trim()),
         position: _position,
+        gender: _gender,
         visibilityRadiusKm: _visibilityRadiusKm.toInt(),
         displayName: newName,
       );
       if (!mounted) return;
       setState(() => _editing = false);
     } catch (e) {
+      log(e.toString());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save changes: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save changes: ${friendlyError(e)}')),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -187,12 +267,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }
           return Stack(
             children: [
-              if (profile.bannerUrl != null && profile.bannerUrl != '' && HooprTheme.instance.glass)
+              if (profile.bannerUrl != null &&
+                  profile.bannerUrl != '' &&
+                  HooprTheme.instance.glass)
                 SizedBox.expand(
                   child: ClipRect(
                     child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: .mirror),
-                      child: Image(fit: .cover, image: ref.read(imageProviderFamily(profile.bannerUrl!))),
+                      imageFilter: ImageFilter.blur(
+                        sigmaX: 10,
+                        sigmaY: 10,
+                        tileMode: .mirror,
+                      ),
+                      child: Image(
+                        fit: .cover,
+                        image: ref.read(
+                          imageProviderFamily(profile.bannerUrl!),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -200,6 +291,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.only(bottom: 88),
                 child: SizedBox.expand(
                   child: ListView(
+                    shrinkWrap: true,
                     children: [
                       AppBar(
                         backgroundColor: Colors.transparent,
@@ -210,31 +302,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Icon(Icons.image_outlined),
                               tooltip: 'Change banner',
                               onPressed: _uploadingBanner
                                   ? null
-                                  : () => _changeImage(profileAsync.value!.userId, isBanner: true),
+                                  : () => _changeImage(
+                                      profileAsync.value!.userId,
+                                      isBanner: true,
+                                    ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
                               icon: const Icon(Icons.edit),
-                              onPressed: () => _enterEditMode(profileAsync.value!),
+                              onPressed: () =>
+                                  _enterEditMode(profileAsync.value!),
                             ),
                           ],
                           const SizedBox(width: 8),
                           IconButton(
                             icon: Icon(Icons.settings),
-                            onPressed: () =>
-                                Navigator.of(context)
-                                    .push(MaterialPageRoute(builder: (_) => const UserSettingsScreen())),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const UserSettingsScreen(),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 16),
                         ],
                       ),
-                      _editing ? _buildEditForm(uid, profile.displayName) : _buildViewMode(profile),
+                      _editing
+                          ? _buildEditForm(uid, profile.displayName)
+                          : _buildViewMode(profile),
                     ],
                   ),
                 ),
@@ -249,8 +351,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int currItem = 0;
 
   Widget _buildViewMode(PlayerProfile profile) {
-    final hasBanner = profile.bannerUrl != null && profile.bannerUrl != '' && HooprTheme.instance.glass;
-    final surfaceColor = hasBanner ? const Color.fromARGB(110, 255, 255, 255) : null;
+    final hasBanner =
+        profile.bannerUrl != null &&
+        profile.bannerUrl != '' &&
+        HooprTheme.instance.glass;
+    final surfaceColor = hasBanner
+        ? const Color.fromARGB(110, 255, 255, 255)
+        : null;
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16),
       child: Column(
@@ -271,26 +378,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       CircleAvatar(
                         radius: 50,
                         backgroundImage: profile.photoUrl != null
-                            ? ResizeImage(CachedNetworkImageProvider(profile.photoUrl!), width: 300)
+                            ? ResizeImage(
+                                CachedNetworkImageProvider(profile.photoUrl!),
+                                width: 300,
+                              )
                             : null,
-                        child: profile.photoUrl == null ? Text(profile.displayName.substring(0, 1)) : null,
+                        child: profile.photoUrl == null
+                            ? Text(profile.displayName.substring(0, 1))
+                            : null,
                       ),
                       if (profile.userId != '')
                         Positioned(
                           bottom: -4,
                           right: -4,
                           child: GestureDetector(
-                            onTap: _uploadingPhoto ? null : () => _changeImage(profile.userId, isBanner: false),
+                            onTap: _uploadingPhoto
+                                ? null
+                                : () => _changeImage(
+                                    profile.userId,
+                                    isBanner: false,
+                                  ),
                             child: Container(
                               padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+                              decoration: const BoxDecoration(
+                                color: Colors.black,
+                                shape: BoxShape.circle,
+                              ),
                               child: _uploadingPhoto
                                   ? const SizedBox(
                                       width: 14,
                                       height: 14,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     )
-                                  : const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
+                                  : const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
                             ),
                           ),
                         ),
@@ -304,12 +431,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         Text(
                           profile.displayName,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: .w900),
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(fontWeight: .w900),
                         ),
                         const SizedBox(height: 6),
                         EloRankChip(elo: profile.elo),
                         const SizedBox(height: 8),
-                        Text(profile.bio.isEmpty ? "No bio yet. " : profile.bio),
+                        Text(
+                          profile.bio.isEmpty ? "No bio yet. " : profile.bio,
+                        ),
                       ],
                     ),
                   ),
@@ -319,17 +449,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           const SizedBox(height: 20),
           DarkFilledButton(
-            onPressed: _updatingLocation ? null : () => _updateLocation(profile.userId),
+            onPressed: _updatingLocation
+                ? null
+                : () => _updateLocation(profile.userId),
             child: Row(
               mainAxisSize: .max,
               mainAxisAlignment: .center,
               children: [
                 _updatingLocation
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.my_location),
                 const SizedBox(width: 8),
-                Text(profile.homeLocation == null ? "Set my location so I show up nearby" : 'Update my location'),
+                Text(
+                  profile.homeLocation == null
+                      ? "Set my location so I show up nearby"
+                      : 'Update my location',
+                ),
               ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 6, left: 4, right: 4),
+            child: Text(
+              'Shown to other players (rounded to roughly 1km, never your exact address) so you show up nearby.',
+              style: TextStyle(fontSize: 11),
             ),
           ),
           const SizedBox(height: 20),
@@ -369,7 +516,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Expanded(
                 child: CustomDataBox(
                   label: 'Position',
-                  value: capitalize(playerPositionFromInt(profile.position)?.name),
+                  value: capitalize(
+                    playerPositionFromInt(profile.position)?.name,
+                  ),
                   icon: Icons.person_2_rounded,
                   color: surfaceColor,
                 ),
@@ -377,7 +526,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          EloHistoryChart(uid: profile.userId, fallbackElo: profile.elo, chartHeight: 110),
+          EloHistoryChart(
+            uid: profile.userId,
+            fallbackElo: profile.elo,
+            chartHeight: 110,
+          ),
           const SizedBox(height: 20),
           BlurredContainer(
             elevation: 1,
@@ -424,9 +577,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 MatchesList(
                   includeBlurredContainer: false,
-                  label: currItem == 1 ? "Upcoming Matches" : "Finished Matches",
+                  label: currItem == 1
+                      ? "Upcoming Matches"
+                      : "Finished Matches",
                   matchesAsync: AsyncValue.data(
-                    (currItem == 1 ? profile.lockedMatchIds : profile.completedMatchIds) ?? [],
+                    (currItem == 1
+                            ? profile.lockedMatchIds
+                            : profile.completedMatchIds) ??
+                        [],
                   ),
                   userId: profile.userId,
                 ),
@@ -456,7 +614,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 controller: _nameController,
                 message: 'Display Name',
                 maxLength: 12,
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+                ],
                 validator: (s) {
                   final value = (s ?? '').trim();
                   if (value.isEmpty) return ' ';
@@ -465,7 +625,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              BlurredFormField(controller: _bioController, message: 'Bio', maxLength: 100, maxLines: 3),
+              BlurredFormField(
+                controller: _bioController,
+                message: 'Bio',
+                maxLength: 100,
+                maxLines: 3,
+              ),
               const SizedBox(height: 12),
               BlurredFormField(
                 controller: _heightController,
@@ -487,6 +652,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onSelectionChanged: (set) => setState(() => _position = set),
               ),
               const SizedBox(height: 12),
+              GenderPicker(
+                enabled: true,
+                selected: _gender,
+                onSelectionChanged: (set) => setState(() => _gender = set),
+              ),
+              const SizedBox(height: 12),
               BlurredContainer(
                 elevation: 1,
                 borderWidth: 1.5,
@@ -497,7 +668,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(left: 20.0, top: 18),
-                      child: Text('Discovery radius: ${_visibilityRadiusKm.toStringAsFixed(0)} km'),
+                      child: Text(
+                        'Discovery radius: ${_visibilityRadiusKm.toStringAsFixed(0)} km',
+                      ),
                     ),
                     Slider(
                       value: _visibilityRadiusKm,
@@ -515,7 +688,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   Expanded(
                     child: DarkFilledButton(
-                      onPressed: _saving ? null : () => setState(() => _editing = false),
+                      onPressed: _saving
+                          ? null
+                          : () => setState(() => _editing = false),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -524,7 +699,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: FilledButton(
                       onPressed: _saving ? null : () => _save(uid, oldName),
                       child: _saving
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Text('Save'),
                     ),
                   ),

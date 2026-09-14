@@ -79,10 +79,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // ref.listen (not ref.watch) since this is a side effect, not something
-    // HomePage itself needs to rebuild for; select() narrows it to just the
-    // one field so unrelated preference changes (e.g. blockedUsers) don't
-    // even trigger this callback.
     ref.listen(myPreferencesProvider.select((v) => v.value?.glass), (
       previous,
       next,

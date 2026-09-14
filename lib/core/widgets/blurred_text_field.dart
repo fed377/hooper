@@ -19,6 +19,8 @@ class BlurredTextField extends StatelessWidget {
     this.maxLines = 1,
     this.maxLength,
     this.inputFormatters,
+    this.focusNode,
+    this.autofocus = false,
   });
 
   final TextEditingController? _controller;
@@ -33,6 +35,8 @@ class BlurredTextField extends StatelessWidget {
   final int maxLines;
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters;
+  final FocusNode? focusNode;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +54,8 @@ class BlurredTextField extends StatelessWidget {
       controller: _controller,
       enabled: enabled,
       maxLines: maxLines,
+      focusNode: focusNode,
+      autofocus: autofocus,
       decoration: InputDecoration(
         counter: const SizedBox(),
         filled: true,

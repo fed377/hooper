@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:hooper/features/profile/data/player_profile.dart';
 
 enum Tier { rookie, rising, baller, pro, elite }
 
@@ -32,6 +33,7 @@ class Matchup {
   final String? bio;
   final int height;
   final int position;
+  final int? gender;
 
   Matchup({
     required this.id,
@@ -46,10 +48,12 @@ class Matchup {
     required this.bio,
     required this.height,
     required this.position,
+    this.gender,
     DateTime? lastActive,
   }) : lastActive = lastActive ?? .now();
 
   Tier get tier => tierForElo(elo);
+  Gender? get genderValue => genderFromInt(gender);
 
   factory Matchup.fromJson(Map<String, dynamic> data) {
     return Matchup(
@@ -61,11 +65,14 @@ class Matchup {
       distanceKm: (data['distanceKm'] as num).toDouble(),
       visibilityRadius: data['visibilityRadius'] as int,
       recentForm: (data['recentForm'] as List).cast<bool>(),
-      lastActive: DateTime.parse((data['lastActive'] as Timestamp).toDate().toIso8601String()),
+      lastActive: DateTime.parse(
+        (data['lastActive'] as Timestamp).toDate().toIso8601String(),
+      ),
       gamesPlayed1v1: data['gamesPlayed1v1'] as int,
       bio: data['bio'] as String?,
       height: data['height'] as int,
       position: data['position'] as int,
+      gender: data['gender'] as int?,
     );
   }
 

@@ -68,7 +68,7 @@ service cloud.firestore {
       // Admin SDK.
       allow update: if request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-             "displayName", "bio", "photoUrl", "bannerUrl",  "height", "position",
+             "displayName", "bio", "photoUrl", "bannerUrl",  "height", "position", "gender",
              "visibilityRadius", "lastActive", "homeLocation", "geohash",
              "fcmTokens"
            ]);
